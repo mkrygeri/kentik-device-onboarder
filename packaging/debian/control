@@ -1,0 +1,19 @@
+Source: kentik-device-onboarder
+Section: net
+Priority: optional
+Maintainer: Kentik Technologies, Inc. <support@kentik.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/kentik/kentik-device-onboarder
+Rules-Requires-Root: no
+
+Package: kentik-device-onboarder
+Architecture: all
+Depends: ${misc:Depends}, python3
+Description: Automatically onboards unregistered devices into the Kentik platform
+ kentik-device-onboarder is a lightweight Python daemon that polls a Kentik
+ flow-pak healthcheck socket, discovers unregistered flow-sending devices, and
+ automatically registers them with the Kentik API.
+ .
+ It runs as a systemd service with exponential back-off, per-device retry
+ state, and client-side rate limiting.

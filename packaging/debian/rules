@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+# Simple rules file using debhelper.
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# Pure Python — nothing to compile.
+
+override_dh_auto_install:
+	install -D -m 0755 kentik_device_onboarder.py \
+		debian/kentik-device-onboarder/opt/kentik-device-onboarder/kentik_device_onboarder.py
+	install -D -m 0644 kentik-device-onboarder.service \
+		debian/kentik-device-onboarder/usr/lib/systemd/system/kentik-device-onboarder.service
+	install -D -m 0644 kentik-device-onboarder.env.example \
+		debian/kentik-device-onboarder/etc/kentik-device-onboarder/onboarder.env.example
+
+override_dh_installsystemd:
+	dh_installsystemd --name=kentik-device-onboarder --no-enable --no-start

@@ -1,0 +1,25 @@
+services:
+  kentik-device-onboarder:
+    image: kentik-device-onboarder:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Pass credentials via an env file (never hardcode them here).
+    # Copy kentik-device-onboarder.env.example to .env and fill in the values.
+    env_file:
+      - .env
+    environment:
+      KENTIK_ONBOARDER_STATE_FILE: /var/lib/kentik-device-onboarder/state.json
+      KENTIK_ONBOARDER_LOG_LEVEL: ${KENTIK_ONBOARDER_LOG_LEVEL:-INFO}
+    volumes:
+      - onboarder-state:/var/lib/kentik-device-onboarder
+    # The healthcheck socket must be reachable from the container.
+    # If the flow-pak runs on the host, use host networking:
+    #   network_mode: host
+    # Or point KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS to the flow-pak container name:
+    #   KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS=flowpak:9996
+    network_mode: host
+
+volumes:
+  onboarder-state:

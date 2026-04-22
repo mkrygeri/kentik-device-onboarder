@@ -1,0 +1,5 @@
+kentik-device-onboarder (1.0.0-1) unstable; urgency=medium
+
+  * Initial Debian package release.
+
+ -- Kentik Technologies, Inc. <support@kentik.com>  Tue, 22 Apr 2026 00:00:00 +0000

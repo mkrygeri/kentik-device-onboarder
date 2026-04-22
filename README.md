@@ -1,0 +1,359 @@
+# kentik-device-onboarder
+
+A lightweight Python daemon that continuously monitors a Kentik flow-pak healthcheck socket, discovers unregistered flow-sending devices, and automatically registers (onboards) them with the [Kentik API](https://kb.kentik.com/v4/Cb02.htm). It runs as a systemd service and is distributed as native Linux packages for both Debian/Ubuntu (`.deb`) and Red Hat/Rocky/Alma Linux (`.rpm`).
+
+---
+
+## Table of Contents
+
+- [How It Works](#how-it-works)
+- [Requirements](#requirements)
+- [Installation](#installation)
+  - [Debian / Ubuntu (DEB)](#debian--ubuntu-deb)
+  - [Red Hat / Rocky / Alma Linux (RPM)](#red-hat--rocky--alma-linux-rpm)
+  - [Manual installation](#manual-installation)
+- [Configuration](#configuration)
+- [Service management](#service-management)
+- [CLI reference](#cli-reference)
+- [Building packages](#building-packages)
+  - [Quick build with fpm](#quick-build-with-fpm)
+  - [Native DEB build](#native-deb-build)
+  - [Native RPM build](#native-rpm-build)
+- [GitHub Actions Artifacts](#github-actions-artifacts)
+- [Docker](#docker)
+  - [Build the image](#build-the-image)
+  - [Run with Docker](#run-with-docker)
+  - [Run with Docker Compose](#run-with-docker-compose)
+  - [Push to a registry](#push-to-a-registry)
+- [Project layout](#project-layout)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## How It Works
+
+```
+flow-pak healthcheck socket (127.0.0.1:9996)
+         │
+         │  TCP read → plain-text "* Unregistered: <ip>" lines
+         ▼
+kentik-device-onboarder
+  1. Parse unregistered IPs from healthcheck response
+  2. Reverse-DNS lookup each IP for a human-readable device name
+  3. POST /device/v202504beta2/device/batch_create to the Kentik API
+  4. Persist per-device retry state to a JSON file
+  5. Sleep for poll-interval, then repeat
+```
+
+Key resilience features:
+- **Per-device exponential back-off** — failed devices are retried with increasing delays (default: 5 min base, 2 h max).
+- **Global back-off** — API or healthcheck failures pause all operations briefly (default: 1 min base, 30 min max).
+- **Success cooldown** — successfully onboarded devices are not re-submitted for 24 hours.
+- **Client-side rate limiting** — limits batch-create requests to 12 per minute with a burst of 2.
+- **Graceful shutdown** — handles SIGTERM / SIGINT cleanly and saves state before exit.
+
+---
+
+## Requirements
+
+| Requirement | Notes |
+|---|---|
+| Python ≥ 3.9 | Standard library only — no third-party packages |
+| systemd | For service management |
+| Kentik account | With API credentials (email + API token) |
+| Kentik flow-pak | Running and exposing the healthcheck socket |
+
+---
+
+## Installation
+
+### Debian / Ubuntu (DEB)
+
+Download the latest `.deb` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
+
+```bash
+sudo apt install ./kentik-device-onboarder_1.0.0_all.deb
+```
+
+### Red Hat / Rocky / Alma Linux (RPM)
+
+Download the latest `.rpm` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
+
+```bash
+sudo dnf install ./kentik-device-onboarder-1.0.0-1.noarch.rpm
+```
+
+Both packages:
+
+1. Create a `kentik-onboarder` system user and group.
+2. Install the daemon to `/opt/kentik-device-onboarder/`.
+3. Install the systemd unit to `/usr/lib/systemd/system/`.
+4. Create `/etc/kentik-device-onboarder/onboarder.env` from the bundled example (if not already present).
+5. Enable (but do **not** start) the service — you must edit the configuration first.
+
+### Manual installation
+
+```bash
+sudo bash install-kentik-device-onboarder.sh
+```
+
+The script honours the following environment variables for path overrides:
+
+| Variable | Default |
+|---|---|
+| `INSTALL_DIR` | `/opt/kentik-device-onboarder` |
+| `CONFIG_DIR` | `/etc/kentik-device-onboarder` |
+| `STATE_DIR` | `/var/lib/kentik-device-onboarder` |
+| `PYTHON_BIN` | `/usr/bin/python3` |
+
+---
+
+## Configuration
+
+All settings are read from `/etc/kentik-device-onboarder/onboarder.env`. A commented example is installed automatically:
+
+```ini
+# Required
+KENTIK_API_EMAIL=you@example.com
+KENTIK_API_TOKEN=your-api-token-here
+KENTIK_ONBOARDER_FLOWPAK_ID=12345
+
+# Optional — shown with their defaults
+KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS=127.0.0.1:9996
+KENTIK_ONBOARDER_POLL_INTERVAL=5m
+KENTIK_ONBOARDER_API_ROOT=https://api.kentik.com
+KENTIK_ONBOARDER_LOG_LEVEL=INFO
+KENTIK_ONBOARDER_STATE_FILE=/var/lib/kentik-device-onboarder/state.json
+```
+
+See [`kentik-device-onboarder.env.example`](kentik-device-onboarder.env.example) for the full list of supported variables with descriptions.
+
+> **Security note:** The configuration file is owned by `root:kentik-onboarder` with mode `0640`. It contains API credentials — do not make it world-readable.
+
+---
+
+## Service management
+
+```bash
+# Start after editing the configuration
+sudo systemctl start kentik-device-onboarder
+
+# Follow live logs
+sudo journalctl -u kentik-device-onboarder -f
+
+# Restart after a config change
+sudo systemctl restart kentik-device-onboarder
+
+# Stop
+sudo systemctl stop kentik-device-onboarder
+
+# Check status
+sudo systemctl status kentik-device-onboarder
+```
+
+---
+
+## CLI reference
+
+The daemon can also be run directly (useful for one-shot dry runs):
+
+```
+usage: kentik_device_onboarder.py [-h]
+  [--flowpak-id INT]
+  [--api-email EMAIL]
+  [--api-token TOKEN]
+  [--healthcheck-address HOST:PORT]
+  [--poll-interval DURATION]
+  [--healthcheck-timeout DURATION]
+  [--api-root URL]
+  [--request-timeout DURATION]
+  [--batch-size INT]
+  [--success-cooldown DURATION]
+  [--backoff-base DURATION]
+  [--backoff-max DURATION]
+  [--global-backoff-base DURATION]
+  [--global-backoff-max DURATION]
+  [--api-rate-per-minute FLOAT]
+  [--api-rate-burst INT]
+  [--state-file PATH]
+  [--log-level LEVEL]
+  [--run-once]
+  [--dry-run]
+```
+
+Duration arguments accept bare seconds (`300`), or a value with a single-character suffix: `s` (seconds), `m` (minutes), `h` (hours). Example: `--poll-interval 5m`.
+
+**Useful one-liners:**
+
+```bash
+# Dry-run to see what would be onboarded right now
+sudo -u kentik-onboarder python3 /opt/kentik-device-onboarder/kentik_device_onboarder.py \
+  --run-once --dry-run
+
+# Single cycle with debug logging
+sudo -u kentik-onboarder python3 /opt/kentik-device-onboarder/kentik_device_onboarder.py \
+  --run-once --log-level DEBUG
+```
+
+---
+
+## Docker
+
+The container image is a 2-stage build (`python:3.12-slim` runtime) running as the unprivileged `kentik-onboarder` user. State is persisted to a named volume.
+
+### Build the image
+
+```bash
+make docker
+# or directly:
+docker build -t kentik-device-onboarder:1.0.0 -t kentik-device-onboarder:latest .
+```
+
+### Run with Docker
+
+```bash
+# Create .env from the example and fill in your credentials
+cp kentik-device-onboarder.env.example .env
+$EDITOR .env
+
+docker run -d \
+  --name kentik-device-onboarder \
+  --restart unless-stopped \
+  --network host \
+  --env-file .env \
+  -v onboarder-state:/var/lib/kentik-device-onboarder \
+  kentik-device-onboarder:latest
+```
+
+> **Network mode:** The daemon connects to the flow-pak healthcheck socket (default `127.0.0.1:9996`). Using `--network host` is the simplest approach when the flow-pak runs on the same host. Alternatively, point `KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS` at a reachable container name or IP and use bridge networking.
+
+### Run with Docker Compose
+
+```bash
+cp kentik-device-onboarder.env.example .env
+$EDITOR .env   # set KENTIK_API_EMAIL, KENTIK_API_TOKEN, KENTIK_ONBOARDER_FLOWPAK_ID
+
+docker compose up -d
+docker compose logs -f
+```
+
+### Push to a registry
+
+```bash
+make docker-push REGISTRY=registry.example.com/myorg
+```
+
+---
+
+## Building packages
+
+### Quick build with fpm
+
+[fpm](https://fpm.readthedocs.io/) is the recommended way to build both package formats from any Linux host.
+
+**Install fpm:**
+```bash
+gem install fpm          # requires Ruby ≥ 2.5
+# On Debian/Ubuntu also install:
+sudo apt install rpm     # to build RPMs on a Debian host
+```
+
+**Build both packages:**
+```bash
+make all
+# or directly:
+bash packaging/build-packages.sh        # deb + rpm
+bash packaging/build-packages.sh deb    # deb only
+bash packaging/build-packages.sh rpm    # rpm only
+```
+
+Packages are written to `dist/`.
+
+---
+
+### Native DEB build
+
+Requires `build-essential`, `debhelper` (≥ 13), and `dh-python`:
+
+```bash
+sudo apt install build-essential debhelper dh-python
+make native-deb
+```
+
+The `debian/` directory lives under `packaging/debian/`. The `packaging/debian/rules` file builds from the repo root so no source tarball is needed.
+
+---
+
+### Native RPM build
+
+Requires `rpm-build`:
+
+```bash
+sudo dnf install rpm-build
+make native-rpm
+```
+
+The spec file is at `packaging/rpm/kentik-device-onboarder.spec` and references source files directly from the repository root.
+
+---
+
+## GitHub Actions Artifacts
+
+This repository includes a workflow at `.github/workflows/build-artifacts.yml` that runs on pushes to `main`, pull requests, tags like `v*`, and manual dispatch.
+
+The workflow builds:
+
+1. Linux packages (`.deb` and `.rpm`) via `make all`
+2. A Docker image tarball (`kentik-device-onboarder-image.tar`)
+
+You can download artifacts from the run summary in the GitHub Actions UI.
+
+---
+
+## Project layout
+
+```
+kentik-device-onboarder/
+├── kentik_device_onboarder.py          # The daemon (single-file, stdlib-only)
+├── kentik-device-onboarder.service     # systemd unit file
+├── kentik-device-onboarder.env.example # Annotated configuration template
+├── install-kentik-device-onboarder.sh  # Manual installer (no package manager)
+├── Dockerfile                          # 2-stage Docker image (python:3.12-slim)
+├── docker-compose.yml                  # Compose file for container deployment
+├── Makefile                            # Build targets: all, deb, rpm, docker, clean, lint
+├── VERSION                             # Single source of truth for the version
+├── .gitignore
+├── CHANGELOG.md
+└── packaging/
+    ├── build-packages.sh               # fpm-based cross-distro build script
+    ├── postinst                        # Shared post-install hook (fpm)
+    ├── prerm                           # Shared pre-remove hook (fpm)
+    ├── debian/                         # Native Debian packaging
+    │   ├── changelog
+    │   ├── compat
+    │   ├── control
+    │   ├── copyright
+    │   ├── postinst
+    │   ├── prerm
+    │   ├── rules
+    │   └── source/
+    │       └── format
+    └── rpm/
+        └── kentik-device-onboarder.spec  # Native RPM spec
+```
+
+---
+
+## Contributing
+
+1. Fork the repository and create a feature branch.
+2. Make your changes and ensure `make lint` passes.
+3. Update `CHANGELOG.md` and bump `VERSION` if appropriate.
+4. Open a pull request with a clear description.
+
+---
+
+## License
+
+[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) — © 2026 Kentik Technologies, Inc.

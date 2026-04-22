@@ -1,0 +1,23 @@
+[Unit]
+Description=Kentik device onboarder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kentik-onboarder
+Group=kentik-onboarder
+WorkingDirectory=/opt/kentik-device-onboarder
+EnvironmentFile=-/etc/kentik-device-onboarder/onboarder.env
+ExecStart=/usr/bin/python3 /opt/kentik-device-onboarder/kentik_device_onboarder.py
+Restart=always
+RestartSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/kentik-device-onboarder
+
+[Install]
+WantedBy=multi-user.target

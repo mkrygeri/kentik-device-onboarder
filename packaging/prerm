@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Pre-removal script for kentik-device-onboarder.
+# Compatible with both DEB (argument: "remove") and RPM (argument: "0" uninstall / "1" upgrade).
+
+set -e
+
+SERVICE_NAME=kentik-device-onboarder.service
+
+_stop_and_disable() {
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+        systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+        systemctl daemon-reload 2>/dev/null || true
+    fi
+}
+
+# DEB: "remove" = uninstall, "upgrade" = upgrade in progress.
+# RPM: "0" = uninstall, "1" = upgrade (package still present).
+case "${1:-}" in
+    remove|0)
+        _stop_and_disable
+        ;;
+    upgrade|1|deconfigure|failed-upgrade)
+        # Upgrading — leave service running; systemd will reload after new files land.
+        ;;
+    *)
+        _stop_and_disable
+        ;;
+esac
+
+exit 0

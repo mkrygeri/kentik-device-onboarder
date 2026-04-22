@@ -1,0 +1,79 @@
+name: Build Linux Artifacts
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-packages:
+    name: Build deb/rpm artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby for fpm
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: false
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          gem install --no-document fpm
+
+      - name: Build packages
+        run: |
+          chmod +x packaging/build-packages.sh packaging/postinst packaging/prerm
+          make all
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages-${{ github.sha }}
+          path: |
+            dist/*.deb
+            dist/*.rpm
+          if-no-files-found: error
+          retention-days: 30
+
+  build-container:
+    name: Build container artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: kentik-device-onboarder:ci
+          load: true
+
+      - name: Save Docker image tarball
+        run: |
+          docker save kentik-device-onboarder:ci -o kentik-device-onboarder-image.tar
+
+      - name: Upload Docker artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ github.sha }}
+          path: kentik-device-onboarder-image.tar
+          if-no-files-found: error
+          retention-days: 7

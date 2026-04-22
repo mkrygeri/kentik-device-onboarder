@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# DEB prerm — called by dpkg before files are removed.
+set -e
+
+SERVICE_NAME=kentik-device-onboarder.service
+
+case "$1" in
+    remove|purge)
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl stop    "$SERVICE_NAME" 2>/dev/null || true
+            systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+            systemctl daemon-reload              2>/dev/null || true
+        fi
+        ;;
+    upgrade|deconfigure|failed-upgrade)
+        ;;
+esac
+
+# debhelper-generated snippet (handles systemd stop/disable for upgrades).
+#DEBHELPER#
+
+exit 0
