@@ -1,6 +1,6 @@
 # kentik-device-onboarder
 
-A lightweight Python daemon that continuously monitors a Kentik flow-pak healthcheck socket, discovers unregistered flow-sending devices, and automatically registers (onboards) them with the [Kentik API](https://kb.kentik.com/v4/Cb02.htm). It runs as a systemd service and is distributed as native Linux packages for both Debian/Ubuntu (`.deb`) and Red Hat/Rocky/Alma Linux (`.rpm`).
+A lightweight Python daemon that continuously monitors a Kentik kproxy healthcheck socket, discovers unregistered flow-sending devices, and automatically registers (onboards) them with the [Kentik API](https://kb.kentik.com/v4/Cb02.htm). It runs as a systemd service and is distributed as native Linux packages for both Debian/Ubuntu (`.deb`) and Red Hat/Rocky/Alma Linux (`.rpm`).
 
 ---
 
