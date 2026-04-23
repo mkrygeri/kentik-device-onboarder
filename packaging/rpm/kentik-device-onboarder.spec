@@ -68,6 +68,41 @@ STATE_DIR=/var/lib/kentik-device-onboarder
 CONFIG_DIR=/etc/kentik-device-onboarder
 INSTALL_DIR=/opt/kentik-device-onboarder
 
+discover_kproxy_credentials() {
+    pid=$(pgrep -n kproxy 2>/dev/null || true)
+    if [ -z "$pid" ] || [ ! -r "/proc/$pid/environ" ]; then
+        return 1
+    fi
+
+    KPROXY_KENTIK_API_EMAIL=$(tr '\0' '\n' < "/proc/$pid/environ" | sed -n 's/^KENTIK_API_EMAIL=//p' | tail -n 1)
+    KPROXY_KENTIK_API_TOKEN=$(tr '\0' '\n' < "/proc/$pid/environ" | sed -n 's/^KENTIK_API_TOKEN=//p' | tail -n 1)
+
+    [ -n "$KPROXY_KENTIK_API_EMAIL" ] && [ -n "$KPROXY_KENTIK_API_TOKEN" ]
+}
+
+escape_sed_replacement() {
+    printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+}
+
+populate_credentials_in_config() {
+    config_file="$1"
+
+    if ! discover_kproxy_credentials; then
+        echo "kproxy credentials not found in process environment; leaving API credentials unchanged"
+        return 0
+    fi
+
+    email_escaped=$(escape_sed_replacement "$KPROXY_KENTIK_API_EMAIL")
+    token_escaped=$(escape_sed_replacement "$KPROXY_KENTIK_API_TOKEN")
+
+    sed -i \
+        -e "s|^KENTIK_API_EMAIL=.*$|KENTIK_API_EMAIL=${email_escaped}|" \
+        -e "s|^KENTIK_API_TOKEN=.*$|KENTIK_API_TOKEN=${token_escaped}|" \
+        "$config_file"
+
+    echo "populated KENTIK_API_EMAIL and KENTIK_API_TOKEN from kproxy environment"
+}
+
 install -d -m 0750 -o kentik-onboarder -g kentik-onboarder "$STATE_DIR"
 
 chown root:kentik-onboarder "$CONFIG_DIR"
@@ -77,6 +112,7 @@ if [ ! -f "$CONFIG_DIR/onboarder.env" ]; then
     install -m 0640 -o kentik-onboarder -g kentik-onboarder \
         "$CONFIG_DIR/onboarder.env.example" \
         "$CONFIG_DIR/onboarder.env"
+    populate_credentials_in_config "$CONFIG_DIR/onboarder.env"
     echo "Created initial configuration: $CONFIG_DIR/onboarder.env"
     echo "Edit this file before starting the service."
 fi

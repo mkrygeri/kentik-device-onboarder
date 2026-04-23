@@ -31,4 +31,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - 2-stage `Dockerfile` (`python:3.12-slim`) running as an unprivileged user.
   - `docker-compose.yml` for single-command container deployment.
   - `make docker` and `make docker-push` Makefile targets.
+- Installer enhancements:
+  - Installers now attempt to read `KENTIK_API_EMAIL` and `KENTIK_API_TOKEN` from the newest `kproxy` process environment (`/proc/$(pgrep -n kproxy)/environ`).
+  - When `onboarder.env` is created for the first time, these credentials are injected automatically.
 - `Makefile` with `all`, `deb`, `rpm`, `native-deb`, `native-rpm`, `docker`, `docker-push`, `lint`, and `clean` targets.

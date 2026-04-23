@@ -90,7 +90,25 @@ Both packages:
 2. Install the daemon to `/opt/kentik-device-onboarder/`.
 3. Install the systemd unit to `/usr/lib/systemd/system/`.
 4. Create `/etc/kentik-device-onboarder/onboarder.env` from the bundled example (if not already present).
-5. Enable (but do **not** start) the service — you must edit the configuration first.
+5. Attempt to read `KENTIK_API_EMAIL` and `KENTIK_API_TOKEN` from the newest `kproxy` process environment (`/proc/$(pgrep -n kproxy)/environ`) and populate those two values in the new config file.
+6. Enable the service (not started automatically).
+
+If no `kproxy` process is running, or the variables are unavailable, the installer leaves the template values unchanged.
+
+### Credential auto-population source
+
+The installer uses the same method below to read credentials from `kproxy`:
+
+```bash
+sudo cat /proc/$(pgrep -n kproxy)/environ | tr '\0' '\n' | grep KENTIK
+```
+
+Expected keys:
+
+- `KENTIK_API_EMAIL`
+- `KENTIK_API_TOKEN`
+
+This auto-population is only applied when `onboarder.env` is created for the first time.
 
 ### Manual installation
 
