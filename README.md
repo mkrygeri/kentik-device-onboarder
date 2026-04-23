@@ -76,6 +76,15 @@ Download the latest `.deb` from the [Releases](https://github.com/kentik/kentik-
 sudo apt install ./kentik-device-onboarder_1.0.0_all.deb
 ```
 
+If you previously built a package that fails during unpack with an error like
+`unable to open '/lib/systemd/system/kentik-device-onboarder.service.dpkg-new'`,
+rebuild the package from the latest source and reinstall:
+
+```bash
+make deb
+sudo apt install ./dist/kentik-device-onboarder_1.0.0_all.deb
+```
+
 ### Red Hat / Rocky / Alma Linux (RPM)
 
 Download the latest `.rpm` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:

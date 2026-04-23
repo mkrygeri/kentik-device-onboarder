@@ -70,7 +70,6 @@ build_deb() {
         -t deb \
         -a all \
         --deb-no-default-config-files \
-        --deb-systemd "$REPO_ROOT/kentik-device-onboarder.service" \
         -p "$output" \
         opt/kentik-device-onboarder \
         usr/lib/systemd/system \
