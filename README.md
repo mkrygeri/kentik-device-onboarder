@@ -336,6 +336,15 @@ The workflow builds:
 
 You can download artifacts from the run summary in the GitHub Actions UI.
 
+For tag pushes matching `v*` (for example `v1.0.1`), the workflow also publishes `.deb` and `.rpm` files to the corresponding GitHub Release automatically.
+
+Example release flow:
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
 ---
 
 ## Project layout
