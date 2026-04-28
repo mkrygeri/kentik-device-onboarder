@@ -10,6 +10,7 @@ SERVICE_NAME=${SERVICE_NAME:-kentik-device-onboarder.service}
 SERVICE_USER=${SERVICE_USER:-kentik-onboarder}
 SERVICE_GROUP=${SERVICE_GROUP:-kentik-onboarder}
 PYTHON_BIN=${PYTHON_BIN:-/usr/bin/python3}
+PLAN_API_URL=${PLAN_API_URL:-https://grpc.api.kentik.com/plans/v202501alpha1}
 
 discover_kproxy_credentials() {
   local pid environ_path line key value
@@ -66,6 +67,133 @@ populate_credentials_in_config() {
   echo "populated KENTIK_API_EMAIL and KENTIK_API_TOKEN from kproxy environment"
 }
 
+get_config_value() {
+  local config_file="$1"
+  local key="$2"
+  sed -n "s/^${key}=//p" "$config_file" | tail -n 1
+}
+
+set_config_value() {
+  local config_file="$1"
+  local key="$2"
+  local value="$3"
+  local escaped
+
+  escaped=$(escape_sed_replacement "$value")
+  if grep -q "^${key}=" "$config_file"; then
+    sed -i -e "s|^${key}=.*$|${key}=${escaped}|" "$config_file"
+  else
+    printf '\n%s=%s\n' "$key" "$value" >> "$config_file"
+  fi
+}
+
+fetch_default_flowpak_plan_id() {
+  local email="$1"
+  local token="$2"
+
+  KENTIK_API_EMAIL="$email" \
+  KENTIK_API_TOKEN="$token" \
+  PLAN_API_URL="$PLAN_API_URL" \
+  "$PYTHON_BIN" - <<'PY'
+import json
+import os
+import sys
+from urllib import request, error
+
+email = os.environ.get("KENTIK_API_EMAIL", "").strip()
+token = os.environ.get("KENTIK_API_TOKEN", "").strip()
+url = os.environ.get("PLAN_API_URL", "").strip()
+
+if not email or not token or not url:
+    raise SystemExit(1)
+
+req = request.Request(
+    url=url,
+    method="GET",
+    headers={
+        "accept": "application/json",
+        "X-CH-Auth-Email": email,
+        "X-CH-Auth-API-Token": token,
+        "User-Agent": "kentik-device-onboarder-installer/1.0",
+    },
+)
+
+try:
+    with request.urlopen(req, timeout=10) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+except (error.URLError, error.HTTPError, TimeoutError, json.JSONDecodeError):
+    raise SystemExit(2)
+
+best = None
+for plan in payload.get("plans", []):
+    metadata = plan.get("metadata") or {}
+    if str(metadata.get("type", "")).lower() != "flowpak":
+        continue
+    try:
+        max_fps = int(plan.get("maxFps", 0))
+    except (TypeError, ValueError):
+        max_fps = 0
+    if best is None or max_fps > best[0]:
+        best = (max_fps, str(plan.get("id", "")).strip())
+
+if not best or not best[1].isdigit():
+    raise SystemExit(3)
+
+print(best[1])
+PY
+}
+
+choose_flowpak_id_interactively() {
+  local current_value="$1"
+  local entered=""
+
+  if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+    return 1
+  fi
+
+  while true; do
+    printf 'Unable to auto-discover flowpak plan ID. Enter default flowpak plan ID [%s]: ' "$current_value" > /dev/tty
+    if ! IFS= read -r entered < /dev/tty; then
+      return 1
+    fi
+    entered=${entered:-$current_value}
+    if [[ "$entered" =~ ^[0-9]+$ && "$entered" != "0" ]]; then
+      printf '%s\n' "$entered"
+      return 0
+    fi
+    printf 'Invalid plan ID. Please enter a positive integer.\n' > /dev/tty
+  done
+}
+
+populate_flowpak_id_in_config() {
+  local config_file="$1"
+  local email token current_value discovered chosen
+
+  current_value=$(get_config_value "$config_file" "KENTIK_ONBOARDER_FLOWPAK_ID")
+  current_value=${current_value:-12345}
+  email=$(get_config_value "$config_file" "KENTIK_API_EMAIL")
+  token=$(get_config_value "$config_file" "KENTIK_API_TOKEN")
+
+  discovered=""
+  if [[ -n "$email" && -n "$token" ]]; then
+    discovered=$(fetch_default_flowpak_plan_id "$email" "$token" 2>/dev/null || true)
+  fi
+
+  if [[ "$discovered" =~ ^[0-9]+$ && "$discovered" != "0" ]]; then
+    set_config_value "$config_file" "KENTIK_ONBOARDER_FLOWPAK_ID" "$discovered"
+    echo "auto-selected flowpak plan ID from API"
+    return 0
+  fi
+
+  if chosen=$(choose_flowpak_id_interactively "$current_value"); then
+    set_config_value "$config_file" "KENTIK_ONBOARDER_FLOWPAK_ID" "$chosen"
+    echo "set flowpak plan ID from installer prompt"
+    return 0
+  fi
+
+  echo "could not auto-discover flowpak plan ID and no interactive input available; leaving current value unchanged"
+}
+
 if [[ $EUID -ne 0 ]]; then
   echo "this installer must be run as root" >&2
   exit 1
@@ -100,9 +228,11 @@ install -m 0644 "$SCRIPT_DIR/kentik-device-onboarder.service" "/etc/systemd/syst
 if [[ ! -f "$CONFIG_DIR/onboarder.env" ]]; then
   install -m 0640 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$SCRIPT_DIR/kentik-device-onboarder.env.example" "$CONFIG_DIR/onboarder.env"
   populate_credentials_in_config "$CONFIG_DIR/onboarder.env"
+  populate_flowpak_id_in_config "$CONFIG_DIR/onboarder.env"
   echo "created example environment file at $CONFIG_DIR/onboarder.env"
 else
-  echo "leaving existing environment file unchanged at $CONFIG_DIR/onboarder.env"
+  populate_flowpak_id_in_config "$CONFIG_DIR/onboarder.env"
+  echo "updated flowpak plan ID in existing environment file at $CONFIG_DIR/onboarder.env"
 fi
 
 sed -i \

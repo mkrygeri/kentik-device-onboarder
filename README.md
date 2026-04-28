@@ -100,9 +100,13 @@ Both packages:
 3. Install the systemd unit to `/usr/lib/systemd/system/`.
 4. Create `/etc/kentik-device-onboarder/onboarder.env` from the bundled example (if not already present).
 5. Attempt to read `KENTIK_API_EMAIL` and `KENTIK_API_TOKEN` from the newest `kproxy` process environment (`/proc/$(pgrep -n kproxy)/environ`) and populate those two values in the new config file.
-6. Enable the service (not started automatically).
+6. Query the Kentik plans API (`/plans/v202501alpha1`) with those credentials, pick the `flowpak` plan with the highest `maxFps`, and set `KENTIK_ONBOARDER_FLOWPAK_ID` automatically.
+7. Enable the service (not started automatically).
 
 If no `kproxy` process is running, or the variables are unavailable, the installer leaves the template values unchanged.
+
+If the plan API is unreachable, the installer prompts for a default flowpak plan ID during interactive installs.
+For non-interactive installs (for example unattended package upgrades), it leaves the current flowpak ID unchanged.
 
 ### Credential auto-population source
 
@@ -118,6 +122,8 @@ Expected keys:
 - `KENTIK_API_TOKEN`
 
 This auto-population is only applied when `onboarder.env` is created for the first time.
+
+`KENTIK_ONBOARDER_FLOWPAK_ID` is refreshed on installs and upgrades using the plan API logic above.
 
 ### Manual installation
 

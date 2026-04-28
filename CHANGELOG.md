@@ -7,6 +7,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.0.1] - 2026-04-28
+
+### Added
+
+- Installer now auto-selects `KENTIK_ONBOARDER_FLOWPAK_ID` by calling the Kentik plans API and choosing the `flowpak` plan with the highest `maxFps`.
+- If plans API lookup fails during interactive install, installer prompts for a default flowpak ID.
+- DEB/RPM upgrades now refresh `KENTIK_ONBOARDER_FLOWPAK_ID` in existing config using the same selection logic.
+
+### Changed
+
+- Installer credential-to-config population now works together with automatic flowpak plan discovery in manual install and package post-install scripts.
+
+---
+
 ## [1.0.0] - 2026-04-22
 
 ### Added
@@ -34,4 +48,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Installer enhancements:
   - Installers now attempt to read `KENTIK_API_EMAIL` and `KENTIK_API_TOKEN` from the newest `kproxy` process environment (`/proc/$(pgrep -n kproxy)/environ`).
   - When `onboarder.env` is created for the first time, these credentials are injected automatically.
+  - Installers now call `https://grpc.api.kentik.com/plans/v202501alpha1`, choose the `flowpak` plan with the highest `maxFps`, and set `KENTIK_ONBOARDER_FLOWPAK_ID` automatically.
+  - If the plans API cannot be reached during an interactive install, the installer prompts for a default flowpak plan ID.
+  - On package upgrades, the installer refreshes `KENTIK_ONBOARDER_FLOWPAK_ID` in existing configs.
 - `Makefile` with `all`, `deb`, `rpm`, `native-deb`, `native-rpm`, `docker`, `docker-push`, `lint`, and `clean` targets.
