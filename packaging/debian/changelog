@@ -1,3 +1,15 @@
+kentik-device-onboarder (1.1.1-1) unstable; urgency=medium
+
+  * postinst now migrates existing /etc/kentik-device-onboarder/onboarder.env
+    files on upgrade by appending the new v1.1.0 DNS keys
+    (KENTIK_ONBOARDER_DNS_SERVER=auto, KENTIK_ONBOARDER_DNS_TIMEOUT,
+    KENTIK_ONBOARDER_DNS_CACHE_TTL, KENTIK_ONBOARDER_DNS_NEGATIVE_CACHE_TTL)
+    if they are absent. Existing values are never modified, so user
+    customizations are preserved across upgrades.
+  * Bump installer User-Agent to kentik-device-onboarder-installer/1.1.0.
+
+ -- Kentik Technologies, Inc. <support@kentik.com>  Tue, 12 May 2026 12:00:00 +0000
+
 kentik-device-onboarder (1.1.0-1) unstable; urgency=medium
 
   * Bounded reverse-DNS lookups: per-lookup timeout and result caching prevent

@@ -99,7 +99,7 @@ On non-cloud hosts every probe fails fast (1.5 s timeout each) and the onboarder
 Download the latest `.deb` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
 
 ```bash
-sudo apt install ./kentik-device-onboarder_1.1.0_all.deb
+sudo apt install ./kentik-device-onboarder_1.1.1_all.deb
 ```
 
 If you previously built a package that fails during unpack with an error like
@@ -108,7 +108,7 @@ rebuild the package from the latest source and reinstall:
 
 ```bash
 make deb
-sudo apt install ./dist/kentik-device-onboarder_1.1.0_all.deb
+sudo apt install ./dist/kentik-device-onboarder_1.1.1_all.deb
 ```
 
 ### Red Hat / Rocky / Alma Linux (RPM)
@@ -116,7 +116,7 @@ sudo apt install ./dist/kentik-device-onboarder_1.1.0_all.deb
 Download the latest `.rpm` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
 
 ```bash
-sudo dnf install ./kentik-device-onboarder-1.1.0-1.noarch.rpm
+sudo dnf install ./kentik-device-onboarder-1.1.1-1.noarch.rpm
 ```
 
 Both packages:
@@ -274,7 +274,7 @@ The container image is a 2-stage build (`python:3.12-slim` runtime) running as t
 ```bash
 make docker
 # or directly:
-docker build -t kentik-device-onboarder:1.1.0 -t kentik-device-onboarder:latest .
+docker build -t kentik-device-onboarder:1.1.1 -t kentik-device-onboarder:latest .
 ```
 
 ### Run with Docker
@@ -381,8 +381,8 @@ For tag pushes matching `v*` (for example `v1.1.0`), the workflow also publishes
 Example release flow:
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.1.1
+git push origin v1.1.1
 ```
 
 ---

@@ -114,7 +114,7 @@ req = request.Request(
         "accept": "application/json",
         "X-CH-Auth-Email": email,
         "X-CH-Auth-API-Token": token,
-        "User-Agent": "kentik-device-onboarder-installer/1.0",
+        "User-Agent": "kentik-device-onboarder-installer/1.1.0",
     },
 )
 
@@ -194,6 +194,27 @@ populate_flowpak_id_in_config() {
   echo "could not auto-discover flowpak plan ID and no interactive input available; leaving current value unchanged"
 }
 
+add_config_value_if_missing() {
+  local config_file="$1"
+  local key="$2"
+  local value="$3"
+  if grep -q "^${key}=" "$config_file"; then
+    return 0
+  fi
+  printf '%s=%s\n' "$key" "$value" >> "$config_file"
+  echo "added missing ${key} to $(basename "$config_file")"
+}
+
+migrate_config_to_v1_1_0() {
+  # Append the new v1.1.0 DNS knobs to existing configs without modifying any
+  # existing values. Skipped silently if a key is already present.
+  local config_file="$1"
+  add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_TIMEOUT 2s
+  add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_CACHE_TTL 1h
+  add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_NEGATIVE_CACHE_TTL 5m
+  add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_SERVER auto
+}
+
 if [[ $EUID -ne 0 ]]; then
   echo "this installer must be run as root" >&2
   exit 1
@@ -232,6 +253,7 @@ if [[ ! -f "$CONFIG_DIR/onboarder.env" ]]; then
   echo "created example environment file at $CONFIG_DIR/onboarder.env"
 else
   populate_flowpak_id_in_config "$CONFIG_DIR/onboarder.env"
+  migrate_config_to_v1_1_0 "$CONFIG_DIR/onboarder.env"
   echo "updated flowpak plan ID in existing environment file at $CONFIG_DIR/onboarder.env"
 fi
 

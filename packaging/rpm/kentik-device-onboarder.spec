@@ -1,5 +1,5 @@
 Name:           kentik-device-onboarder
-Version:        1.1.0
+Version:        1.1.1
 Release:        1%{?dist}
 Summary:        Automatically onboards unregistered devices into the Kentik platform
 License:        Apache-2.0
@@ -150,7 +150,7 @@ req = request.Request(
         "accept": "application/json",
         "X-CH-Auth-Email": email,
         "X-CH-Auth-API-Token": token,
-        "User-Agent": "kentik-device-onboarder-installer/1.0",
+        "User-Agent": "kentik-device-onboarder-installer/1.1.0",
     },
 )
 
@@ -240,6 +240,27 @@ populate_flowpak_id_in_config() {
     esac
 }
 
+add_config_value_if_missing() {
+    config_file="$1"
+    key="$2"
+    value="$3"
+    if grep -q "^${key}=" "$config_file"; then
+        return 0
+    fi
+    printf '%s=%s\n' "$key" "$value" >> "$config_file"
+    echo "added missing ${key} to $(basename "$config_file")"
+}
+
+migrate_config_to_v1_1_0() {
+    # Append v1.1.0 DNS knobs to existing configs without modifying existing
+    # values. Idempotent across reinstalls and upgrades.
+    config_file="$1"
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_TIMEOUT 2s
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_CACHE_TTL 1h
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_NEGATIVE_CACHE_TTL 5m
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_SERVER auto
+}
+
 install -d -m 0750 -o kentik-onboarder -g kentik-onboarder "$STATE_DIR"
 
 chown root:kentik-onboarder "$CONFIG_DIR"
@@ -255,6 +276,7 @@ if [ ! -f "$CONFIG_DIR/onboarder.env" ]; then
 fi
 
 populate_flowpak_id_in_config "$CONFIG_DIR/onboarder.env"
+migrate_config_to_v1_1_0 "$CONFIG_DIR/onboarder.env"
 
 chown root:kentik-onboarder "$INSTALL_DIR"
 chown kentik-onboarder:kentik-onboarder "$INSTALL_DIR/kentik_device_onboarder.py"
@@ -275,6 +297,10 @@ chown kentik-onboarder:kentik-onboarder "$INSTALL_DIR/kentik_device_onboarder.py
 %attr(0644, root, root) /usr/lib/systemd/system/kentik-device-onboarder.service
 
 %changelog
+* Tue May 12 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.1-1
+- Upgrade migration: postinst now appends KENTIK_ONBOARDER_DNS_SERVER=auto and
+  the new DNS timeout/cache keys to existing /etc/kentik-device-onboarder/
+  onboarder.env files. Existing user-set values are never modified.
 * Tue May 12 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.0-1
 - Bounded reverse-DNS lookups with caching and per-lookup timeout
 - Optional explicit DNS resolver (KENTIK_ONBOARDER_DNS_SERVER), with 'auto'

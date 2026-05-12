@@ -112,7 +112,7 @@ req = request.Request(
         "accept": "application/json",
         "X-CH-Auth-Email": email,
         "X-CH-Auth-API-Token": token,
-        "User-Agent": "kentik-device-onboarder-installer/1.0",
+        "User-Agent": "kentik-device-onboarder-installer/1.1.0",
     },
 )
 
@@ -200,6 +200,27 @@ populate_flowpak_id_in_config() {
     echo "could not auto-discover flowpak plan ID and no interactive input available; leaving current value unchanged"
 }
 
+add_config_value_if_missing() {
+    local config_file="$1"
+    local key="$2"
+    local value="$3"
+    if grep -q "^${key}=" "$config_file"; then
+        return 0
+    fi
+    printf '%s=%s\n' "$key" "$value" >> "$config_file"
+    echo "added missing ${key} to $(basename "$config_file")"
+}
+
+migrate_config_to_v1_1_0() {
+    # Append v1.1.0 DNS knobs to existing configs without modifying any
+    # existing values. Idempotent across reinstalls.
+    local config_file="$1"
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_TIMEOUT 2s
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_CACHE_TTL 1h
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_NEGATIVE_CACHE_TTL 5m
+    add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_SERVER auto
+}
+
 case "$1" in
     configure)
         if ! getent group "$SERVICE_GROUP" >/dev/null 2>&1; then
@@ -231,6 +252,7 @@ case "$1" in
         fi
 
         populate_flowpak_id_in_config "$CONFIG_DIR/onboarder.env"
+        migrate_config_to_v1_1_0 "$CONFIG_DIR/onboarder.env"
 
         chown root:"$SERVICE_GROUP" "$INSTALL_DIR"
         chown "$SERVICE_USER":"$SERVICE_GROUP" "$INSTALL_DIR/kentik_device_onboarder.py"

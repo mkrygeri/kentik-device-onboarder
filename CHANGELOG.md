@@ -7,6 +7,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.1.1] - 2026-05-12
+
+### Changed
+
+- Installers (DEB postinst, RPM `%post`, manual `install-kentik-device-onboarder.sh`) now run a backwards-compatible config migration on every install/upgrade: missing `KENTIK_ONBOARDER_DNS_SERVER=auto`, `KENTIK_ONBOARDER_DNS_TIMEOUT=2s`, `KENTIK_ONBOARDER_DNS_CACHE_TTL=1h`, and `KENTIK_ONBOARDER_DNS_NEGATIVE_CACHE_TTL=5m` lines are appended to existing `onboarder.env` files. Existing values are never touched, so user customizations are preserved.
+- Installer `User-Agent` bumped to `kentik-device-onboarder-installer/1.1.0`.
+
+---
+
 ## [1.1.0] - 2026-05-12
 
 ### Added
