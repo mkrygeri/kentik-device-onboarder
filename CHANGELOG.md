@@ -7,6 +7,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.1.0] - 2026-05-12
+
+### Added
+
+- **Bounded reverse-DNS lookups**: each PTR lookup now runs with a hard timeout (`KENTIK_ONBOARDER_DNS_TIMEOUT`, default 2 s) and results are cached (`KENTIK_ONBOARDER_DNS_CACHE_TTL` / `KENTIK_ONBOARDER_DNS_NEGATIVE_CACHE_TTL`) so a slow or broken DNS server can no longer stall an onboarder cycle.
+- **Optional explicit DNS resolver** via `KENTIK_ONBOARDER_DNS_SERVER` / `--dns-server`. The onboarder issues DNS PTR queries directly to the configured server, bypassing the system resolver. Set the value to `auto` to probe for the cloud metadata server at startup and configure it automatically: GCE → `169.254.169.254`, Azure → `168.63.129.16`, AWS → `169.254.169.253` (Amazon-provided DNS). The probe fails fast on non-cloud hosts and falls back to the system resolver.
+- **`--verify` self-test mode**: checks healthcheck reachability, Kentik API DNS, Kentik API authentication, and reverse DNS for sample unregistered IPs. Exits non-zero if anything fails. Safe to run against production (read-only).
+- **Device-name sanitization**: PTR results are coerced to lowercase `[a-z0-9._-]` (max 60 chars) before being sent to the Kentik API, so unusual hostnames no longer cause permanent onboarding failures.
+
+### Changed
+
+- `read_healthcheck` now raises a clean `TransientAPIError` (with the offending hostname) on `socket.gaierror`, instead of crashing the cycle. This surfaces "Name or service not known" errors against the configured `KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS` directly in the service log and triggers normal global back-off.
+- Reverse-DNS failures are now logged at `INFO` with the underlying error message (`timed out`, `Name or service not known`, etc.) instead of being silently swallowed.
+
+---
+
 ## [1.0.1] - 2026-04-28
 
 ### Added

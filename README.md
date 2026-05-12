@@ -51,7 +51,33 @@ Key resilience features:
 - **Global back-off** — API or healthcheck failures pause all operations briefly (default: 1 min base, 30 min max).
 - **Success cooldown** — successfully onboarded devices are not re-submitted for 24 hours.
 - **Client-side rate limiting** — limits batch-create requests to 12 per minute with a burst of 2.
+- **Bounded reverse-DNS lookups** — each PTR lookup has a hard timeout (default 2 s) and results are cached, so a slow or broken DNS server cannot stall the onboarder cycle.
+- **Optional explicit DNS resolver** — set `KENTIK_ONBOARDER_DNS_SERVER` to bypass the system resolver and query a specific server (e.g. `169.254.169.254` on GCP, see [Cloud-specific notes](#cloud-specific-notes)).
+- **Sanitized device names** — PTR results are normalized to the lowercase `[a-z0-9._-]` character set Kentik accepts, so unusual hostnames don't get permanently rejected.
+- **`--verify` self-test** — validate healthcheck reachability, API DNS, API authentication, and reverse DNS for sample IPs without making any changes.
 - **Graceful shutdown** — handles SIGTERM / SIGINT cleanly and saves state before exit.
+
+---
+
+### Cloud-specific notes
+
+Many cloud container images ship with a minimal `/etc/resolv.conf` that does not point at the cloud-provided resolver — the only resolver that can answer PTR queries for internal/private IP ranges. The symptom is `socket.gaierror: [Errno -2] Name or service not known` for every internal IP, and devices fall back to being onboarded by raw IP.
+
+The simplest fix is:
+
+```bash
+KENTIK_ONBOARDER_DNS_SERVER=auto
+```
+
+in `/etc/kentik-device-onboarder/onboarder.env` (or `--dns-server auto`). At startup the onboarder probes the link-local metadata endpoints and picks the right resolver:
+
+| Cloud | Detected via                                              | DNS server used    |
+|-------|-----------------------------------------------------------|--------------------|
+| GCE   | `GET http://169.254.169.254/computeMetadata/v1/` + `Metadata-Flavor: Google` | `169.254.169.254`  |
+| Azure | `GET http://169.254.169.254/metadata/instance` + `Metadata: true`            | `168.63.129.16`    |
+| AWS   | `PUT http://169.254.169.254/latest/api/token` (IMDSv2)    | `169.254.169.253`  |
+
+On non-cloud hosts every probe fails fast (1.5 s timeout each) and the onboarder uses the system resolver. You can also pin a specific server, e.g. `KENTIK_ONBOARDER_DNS_SERVER=169.254.169.254`. Run `kentik_device_onboarder.py --verify` to confirm the configuration works end-to-end before restarting the service.
 
 ---
 
@@ -73,7 +99,7 @@ Key resilience features:
 Download the latest `.deb` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
 
 ```bash
-sudo apt install ./kentik-device-onboarder_1.0.0_all.deb
+sudo apt install ./kentik-device-onboarder_1.1.0_all.deb
 ```
 
 If you previously built a package that fails during unpack with an error like
@@ -82,7 +108,7 @@ rebuild the package from the latest source and reinstall:
 
 ```bash
 make deb
-sudo apt install ./dist/kentik-device-onboarder_1.0.0_all.deb
+sudo apt install ./dist/kentik-device-onboarder_1.1.0_all.deb
 ```
 
 ### Red Hat / Rocky / Alma Linux (RPM)
@@ -90,7 +116,7 @@ sudo apt install ./dist/kentik-device-onboarder_1.0.0_all.deb
 Download the latest `.rpm` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
 
 ```bash
-sudo dnf install ./kentik-device-onboarder-1.0.0-1.noarch.rpm
+sudo dnf install ./kentik-device-onboarder-1.1.0-1.noarch.rpm
 ```
 
 Both packages:
@@ -211,8 +237,13 @@ usage: kentik_device_onboarder.py [-h]
   [--api-rate-burst INT]
   [--state-file PATH]
   [--log-level LEVEL]
+  [--dns-timeout DURATION]
+  [--dns-cache-ttl DURATION]
+  [--dns-negative-cache-ttl DURATION]
+  [--dns-server IP[:PORT]|auto]
   [--run-once]
   [--dry-run]
+  [--verify]
 ```
 
 Duration arguments accept bare seconds (`300`), or a value with a single-character suffix: `s` (seconds), `m` (minutes), `h` (hours). Example: `--poll-interval 5m`.
@@ -220,6 +251,9 @@ Duration arguments accept bare seconds (`300`), or a value with a single-charact
 **Useful one-liners:**
 
 ```bash
+# Validate config end-to-end without making any changes (read-only)
+sudo -u kentik-onboarder python3 /opt/kentik-device-onboarder/kentik_device_onboarder.py --verify
+
 # Dry-run to see what would be onboarded right now
 sudo -u kentik-onboarder python3 /opt/kentik-device-onboarder/kentik_device_onboarder.py \
   --run-once --dry-run
@@ -240,7 +274,7 @@ The container image is a 2-stage build (`python:3.12-slim` runtime) running as t
 ```bash
 make docker
 # or directly:
-docker build -t kentik-device-onboarder:1.0.0 -t kentik-device-onboarder:latest .
+docker build -t kentik-device-onboarder:1.1.0 -t kentik-device-onboarder:latest .
 ```
 
 ### Run with Docker
@@ -342,13 +376,13 @@ The workflow builds:
 
 You can download artifacts from the run summary in the GitHub Actions UI.
 
-For tag pushes matching `v*` (for example `v1.0.1`), the workflow also publishes `.deb` and `.rpm` files to the corresponding GitHub Release automatically.
+For tag pushes matching `v*` (for example `v1.1.0`), the workflow also publishes `.deb` and `.rpm` files to the corresponding GitHub Release automatically.
 
 Example release flow:
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 ---

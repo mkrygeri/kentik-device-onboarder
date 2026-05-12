@@ -1,3 +1,19 @@
+kentik-device-onboarder (1.1.0-1) unstable; urgency=medium
+
+  * Bounded reverse-DNS lookups: per-lookup timeout and result caching prevent
+    a slow or broken resolver from stalling the onboarder cycle.
+  * Optional explicit DNS resolver via KENTIK_ONBOARDER_DNS_SERVER /
+    --dns-server. The value 'auto' probes for cloud metadata servers and
+    selects the right link-local resolver on GCE / Azure / AWS.
+  * New --verify self-test mode: validates healthcheck reachability, Kentik
+    API DNS, Kentik API authentication, and reverse DNS for sample IPs.
+  * Sanitize device names to the lowercase [a-z0-9._-] character set Kentik
+    accepts so unusual hostnames no longer cause permanent failures.
+  * read_healthcheck now surfaces DNS failures as clean transient errors
+    instead of crashing the cycle.
+
+ -- Kentik Technologies, Inc. <support@kentik.com>  Tue, 12 May 2026 00:00:00 +0000
+
 kentik-device-onboarder (1.0.0-1) unstable; urgency=medium
 
   * Initial Debian package release.

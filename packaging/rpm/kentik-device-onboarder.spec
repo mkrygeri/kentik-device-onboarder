@@ -1,5 +1,5 @@
 Name:           kentik-device-onboarder
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Automatically onboards unregistered devices into the Kentik platform
 License:        Apache-2.0
@@ -275,5 +275,12 @@ chown kentik-onboarder:kentik-onboarder "$INSTALL_DIR/kentik_device_onboarder.py
 %attr(0644, root, root) /usr/lib/systemd/system/kentik-device-onboarder.service
 
 %changelog
+* Tue May 12 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.0-1
+- Bounded reverse-DNS lookups with caching and per-lookup timeout
+- Optional explicit DNS resolver (KENTIK_ONBOARDER_DNS_SERVER), with 'auto'
+  detection of GCE/Azure/AWS metadata servers
+- New --verify self-test mode (read-only)
+- Sanitize device names to the Kentik-accepted character set
+- read_healthcheck now reports DNS failures cleanly instead of crashing
 * Tue Apr 22 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.0.0-1
 - Initial package release

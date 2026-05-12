@@ -26,7 +26,18 @@ Thumbs.db
 
 # Docker
 .env
+*.env
 
 # Temp files
 *.tmp
 *.bak
+
+# Local helper scripts (not part of the released daemon)
+create_sites.py
+onboard_ips.py
+query_hosts.py
+rename_devices_from_hostmap.py
+update_device_sample_rate.py
+
+# Editor workspace
+*.code-workspace
