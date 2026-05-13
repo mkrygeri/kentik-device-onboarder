@@ -15,4 +15,9 @@ kentik_token_secret_id = "projects/REPLACE-WITH-YOUR-PROJECT-ID/secrets/kentik-a
 # flowpak_id        = 0           # 0 = let postinst auto-discover from plans API
 # run_kproxy        = true
 # kproxy_company_id = "12345"     # required when run_kproxy = true
-# assign_public_ip  = false       # default: SSH via IAP only
+#
+# Networking — by default the VM gets an ephemeral public IP so it can reach
+# apt, Docker Hub, GitHub Releases, and the Kentik API. To keep the VM
+# fully private, disable the public IP and create a Cloud NAT instead:
+# assign_public_ip  = false
+# create_cloud_nat  = true

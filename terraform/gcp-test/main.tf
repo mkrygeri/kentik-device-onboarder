@@ -55,6 +55,33 @@ resource "google_compute_firewall" "iap_ssh" {
   }
 }
 
+// ─── Optional Cloud NAT (for assign_public_ip = false) ──────────────────────
+// A VM with no external IP cannot reach the internet by default, which would
+// break apt-get, Docker Hub, GitHub Releases, and the Kentik API calls run by
+// the startup script. Enable Cloud NAT to provide outbound connectivity
+// without exposing the VM publicly.
+
+resource "google_compute_router" "nat" {
+  count   = var.create_cloud_nat ? 1 : 0
+  name    = "${var.name_prefix}-nat-router"
+  region  = var.region
+  network = data.google_compute_network.default.self_link
+}
+
+resource "google_compute_router_nat" "nat" {
+  count                              = var.create_cloud_nat ? 1 : 0
+  name                               = "${var.name_prefix}-nat"
+  router                             = google_compute_router.nat[0].name
+  region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+
+  log_config {
+    enable = false
+    filter = "ERRORS_ONLY"
+  }
+}
+
 // ─── Service account ────────────────────────────────────────────────────────
 
 resource "google_service_account" "vm" {
@@ -117,7 +144,9 @@ resource "google_compute_instance" "vm" {
     network    = data.google_compute_network.default.self_link
     subnetwork = data.google_compute_subnetwork.default.self_link
 
-    // No external IP — connect over IAP. Flip to true if you want a public IP.
+    // Attach an ephemeral external IP unless explicitly disabled. Without
+    // either a public IP or Cloud NAT, the VM cannot reach the internet and
+    // the startup script will fail.
     dynamic "access_config" {
       for_each = var.assign_public_ip ? [1] : []
       content {
@@ -148,5 +177,6 @@ resource "google_compute_instance" "vm" {
   depends_on = [
     google_secret_manager_secret_iam_member.email_accessor,
     google_secret_manager_secret_iam_member.token_accessor,
+    google_compute_router_nat.nat,
   ]
 }

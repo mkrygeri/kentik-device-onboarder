@@ -78,6 +78,19 @@ terraform destroy
 
 The Secret Manager secrets are **not** managed by this module, so they survive `destroy` and can be reused.
 
+## Networking notes
+
+By default the VM is given an **ephemeral external IP** so the startup script can reach `apt`, Docker Hub, GitHub Releases, and the Kentik API. SSH still goes through IAP (the firewall rule only allows IAP source ranges on port 22).
+
+If your security policy requires the VM to have **no public IP**, set both:
+
+```hcl
+assign_public_ip = false
+create_cloud_nat = true
+```
+
+`create_cloud_nat = true` provisions a regional Cloud Router + Cloud NAT so outbound traffic still works. (Cloud NAT costs a few cents per hour while running — destroy when done.)
+
 ## Cost note
 
 The default `e2-small` instance + 20 GB `pd-balanced` boot disk runs in the cents-per-hour range. Don't leave it running.

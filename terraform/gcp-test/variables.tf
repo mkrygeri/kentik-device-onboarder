@@ -34,7 +34,24 @@ variable "boot_image" {
 }
 
 variable "assign_public_ip" {
-  description = "Attach an ephemeral external IP. Default is false; reach the VM via IAP SSH."
+  description = <<-EOT
+    Attach an ephemeral external IP to the VM. Defaults to true because the
+    startup script needs outbound internet (apt, Docker Hub, GitHub Releases,
+    Kentik API). Set to false only if you also enable Cloud NAT via
+    `create_cloud_nat = true`, or if your project's default VPC already has
+    NAT/PSC routing for these endpoints.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "create_cloud_nat" {
+  description = <<-EOT
+    If true, create a regional Cloud Router + Cloud NAT so a VM with no
+    external IP can still reach the public internet. Use together with
+    `assign_public_ip = false`. NAT resources cost roughly a few cents per
+    hour while running.
+  EOT
   type        = bool
   default     = false
 }
