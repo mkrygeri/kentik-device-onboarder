@@ -366,6 +366,11 @@ class KentikClient:
                 raise RateLimitedError(retry_after, f"kentik api rate limited the request: {response_body.strip()}") from exc
             if exc.code in {500, 502, 503, 504}:
                 raise TransientAPIError(f"kentik api transient failure {exc.code}: {response_body.strip()}") from exc
+            if exc.code in {401, 403}:
+                raise OnboarderError(
+                    f"kentik api authentication failed ({exc.code}): {response_body.strip()} "
+                    "(check KENTIK_API_EMAIL / KENTIK_API_TOKEN; ensure the API user has device-management permission)"
+                ) from exc
             raise OnboarderError(f"kentik api request failed with status {exc.code}: {response_body.strip()}") from exc
         except error.URLError as exc:
             raise TransientAPIError(f"kentik api request failed: {exc.reason}") from exc

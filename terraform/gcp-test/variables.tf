@@ -119,3 +119,26 @@ variable "onboarder_log_level" {
   type        = string
   default     = "INFO"
 }
+
+variable "create_spoofed_ptr_zone" {
+  description = <<-EOT
+    Create a Cloud DNS private reverse zone with PTR records for the
+    spoofed-flow source IPs used by send_spoofed_netflow.py. The zone is
+    bound to the default VPC so the test VM resolves the fake IPs to
+    fake-device-N.spoofed.test instead of NXDOMAIN.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "spoofed_src_cidr" {
+  description = "CIDR used by send_spoofed_netflow.py (informational; PTRs are written under 0.99.10.in-addr.arpa)."
+  type        = string
+  default     = "10.99.0.0/24"
+}
+
+variable "spoofed_ptr_count" {
+  description = "How many PTR records to create starting at 10.99.0.1 (must match send_spoofed_netflow.py --count)."
+  type        = number
+  default     = 50
+}

@@ -55,6 +55,16 @@ if [[ -z "$${KENTIK_API_EMAIL}" || -z "$${KENTIK_API_TOKEN}" ]]; then
     exit 1
 fi
 
+# Reject obvious placeholder values. Real Kentik tokens are >= 32 chars,
+# emails are usually well over 11. If the secret was created with a default
+# placeholder (e.g. 'placeholder' = 11 chars), the API will return 401 and
+# the onboarder will loop forever on backoff. Catch this here.
+if (( $${#KENTIK_API_EMAIL} < 6 || $${#KENTIK_API_TOKEN} < 24 )); then
+    log "FATAL: Kentik credentials look like placeholders (email=$${#KENTIK_API_EMAIL}b token=$${#KENTIK_API_TOKEN}b)."
+    log "       Update them with: gcloud secrets versions add <secret-name> --data-file=- --project=<project>"
+    exit 1
+fi
+
 # ─── Install Kentik universal agent ────────────────────────────────────────
 # The universal agent provides the local healthcheck endpoint that the
 # onboarder polls. The install script auto-detects the OS and registers a
