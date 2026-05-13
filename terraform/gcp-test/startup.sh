@@ -89,7 +89,13 @@ curl -fsSL --retry 5 --retry-delay 5 -o "$${PKG_PATH}" "$${PACKAGE_URL}"
 
 log "installing package"
 # `dnf install` resolves dependencies (e.g. python3, systemd) automatically.
-dnf install -y "$${PKG_PATH}"
+# Export Kentik credentials so the package %post script can populate
+# /etc/kentik-device-onboarder/onboarder.env on first install. Without this,
+# the legacy postinst path (read kproxy /proc/<pid>/environ) silently fails
+# under the new universal agent because kagent does not export KENTIK_API_*.
+KENTIK_API_EMAIL="$${KENTIK_API_EMAIL}" \
+KENTIK_API_TOKEN="$${KENTIK_API_TOKEN}" \
+    dnf install -y "$${PKG_PATH}"
 
 # ─── Inject credentials & options into onboarder.env ───────────────────────
 CONFIG_FILE=/etc/kentik-device-onboarder/onboarder.env

@@ -7,6 +7,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.1.3] - 2026-05-13
+
+### Fixed
+
+- Installer credential bootstrap now honors `KENTIK_API_EMAIL` and `KENTIK_API_TOKEN` from the install command's environment. Previously the postinst (DEB and RPM) and the standalone `install-kentik-device-onboarder.sh` only knew how to read credentials from a running legacy `kproxy` process's `/proc/<pid>/environ`. That discovery silently fails under the new Kentik universal agent (`kagent`), which authenticates via `K_COMPANY_ID`/`K_REGISTER_PROVISIONING_TOKEN` and never exports the legacy `KENTIK_API_*` pair. After this change, the documented unattended install path works:
+
+  ```
+  KENTIK_API_EMAIL=... KENTIK_API_TOKEN=... dnf install -y ./kentik-device-onboarder-*.rpm
+  KENTIK_API_EMAIL=... KENTIK_API_TOKEN=... apt-get install -y ./kentik-device-onboarder_*.deb
+  KENTIK_API_EMAIL=... KENTIK_API_TOKEN=... ./install-kentik-device-onboarder.sh
+  ```
+
+  Order of precedence: installer-environment variables → legacy kproxy `/proc/<pid>/environ` → unchanged placeholders. When no source provides credentials the installer now logs an explicit, actionable message naming the env vars and the config path, instead of the previous misleading "kproxy credentials not found in process environment" warning.
+
+- The auto-discovery of `KENTIK_ONBOARDER_FLOWPAK_ID` (which calls the plans API) is now reachable on a fresh install whenever credentials are supplied via env vars, since the credentials are written to `onboarder.env` before the plan lookup runs.
+
+### Changed
+
+- `terraform/gcp-test/startup.sh` now exports `KENTIK_API_EMAIL` / `KENTIK_API_TOKEN` into the `dnf install` invocation so the new postinst path is exercised end-to-end on the GCE test VM.
+
+---
+
 ## [1.1.2] - 2026-05-13
 
 ### Fixed

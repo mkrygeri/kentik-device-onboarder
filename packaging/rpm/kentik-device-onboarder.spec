@@ -87,21 +87,40 @@ escape_sed_replacement() {
 
 populate_credentials_in_config() {
     config_file="$1"
+    cred_email=""
+    cred_token=""
+    cred_source=""
 
-    if ! discover_kproxy_credentials; then
-        echo "kproxy credentials not found in process environment; leaving API credentials unchanged"
+    # Preferred: pick credentials up from this script's own environment so
+    # that `KENTIK_API_EMAIL=... KENTIK_API_TOKEN=... dnf install ...`
+    # works for unattended bootstrap. This is the only path that succeeds
+    # with the new Kentik universal agent (kagent), which authenticates via
+    # K_COMPANY_ID/K_REGISTER_PROVISIONING_TOKEN and does not export the
+    # legacy KENTIK_API_* pair into the kproxy process environment.
+    if [ -n "${KENTIK_API_EMAIL:-}" ] && [ -n "${KENTIK_API_TOKEN:-}" ]; then
+        cred_email="$KENTIK_API_EMAIL"
+        cred_token="$KENTIK_API_TOKEN"
+        cred_source="installer environment (KENTIK_API_EMAIL / KENTIK_API_TOKEN)"
+    elif discover_kproxy_credentials; then
+        cred_email="$KPROXY_KENTIK_API_EMAIL"
+        cred_token="$KPROXY_KENTIK_API_TOKEN"
+        cred_source="legacy kproxy process environment"
+    else
+        echo "Kentik API credentials not provided. Set KENTIK_API_EMAIL and"
+        echo "KENTIK_API_TOKEN before installing, or edit $config_file before"
+        echo "starting the service. Leaving placeholders unchanged."
         return 0
     fi
 
-    email_escaped=$(escape_sed_replacement "$KPROXY_KENTIK_API_EMAIL")
-    token_escaped=$(escape_sed_replacement "$KPROXY_KENTIK_API_TOKEN")
+    email_escaped=$(escape_sed_replacement "$cred_email")
+    token_escaped=$(escape_sed_replacement "$cred_token")
 
     sed -i \
         -e "s|^KENTIK_API_EMAIL=.*$|KENTIK_API_EMAIL=${email_escaped}|" \
         -e "s|^KENTIK_API_TOKEN=.*$|KENTIK_API_TOKEN=${token_escaped}|" \
         "$config_file"
 
-    echo "populated KENTIK_API_EMAIL and KENTIK_API_TOKEN from kproxy environment"
+    echo "populated KENTIK_API_EMAIL and KENTIK_API_TOKEN from ${cred_source}"
 }
 
 get_config_value() {
