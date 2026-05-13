@@ -131,7 +131,7 @@ req = request.Request(
         "accept": "application/json",
         "X-CH-Auth-Email": email,
         "X-CH-Auth-API-Token": token,
-        "User-Agent": "kentik-device-onboarder-installer/1.1.0",
+        "User-Agent": "kentik-device-onboarder-installer/1.1.3",
     },
 )
 

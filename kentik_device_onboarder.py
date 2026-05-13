@@ -294,7 +294,7 @@ class KentikClient:
 
     def _auth_headers(self) -> dict[str, str]:
         return {
-            "User-Agent": "kentik-device-onboarder/1.1.1",
+            "User-Agent": "kentik-device-onboarder/1.1.3",
             "X-CH-Auth-Email": self.api_email,
             "X-CH-Auth-API-Token": self.api_token,
         }

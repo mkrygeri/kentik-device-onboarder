@@ -63,11 +63,11 @@ variable "create_cloud_nat" {
 
 variable "package_url" {
   description = <<-EOT
-    URL of the .rpm to install. Defaults to the v1.1.1 GitHub Release asset.
+    URL of the .rpm to install. Defaults to the v1.1.3 GitHub Release asset.
     Override with a newer tag or a self-hosted artifact URL when testing.
   EOT
   type        = string
-  default     = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.1/kentik-device-onboarder-1.1.1-1.noarch.rpm"
+  default     = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.3/kentik-device-onboarder-1.1.3-1.noarch.rpm"
 }
 
 variable "kentik_email_secret_id" {

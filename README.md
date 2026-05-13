@@ -96,11 +96,14 @@ On non-cloud hosts every probe fails fast (1.5 s timeout each) and the onboarder
 
 ### Debian / Ubuntu (DEB)
 
-Download the latest `.deb` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
+Download the latest `.deb` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then (recommended unattended form — pass credentials through the env so the postinst can populate `onboarder.env` automatically):
 
 ```bash
-sudo apt install ./kentik-device-onboarder_1.1.1_all.deb
+KENTIK_API_EMAIL=you@example.com KENTIK_API_TOKEN=… \
+  sudo -E apt install ./kentik-device-onboarder_1.1.3_all.deb
 ```
+
+Without the env vars the package still installs cleanly; you just need to edit `/etc/kentik-device-onboarder/onboarder.env` afterwards.
 
 If you previously built a package that fails during unpack with an error like
 `unable to open '/lib/systemd/system/kentik-device-onboarder.service.dpkg-new'`,
@@ -108,7 +111,7 @@ rebuild the package from the latest source and reinstall:
 
 ```bash
 make deb
-sudo apt install ./dist/kentik-device-onboarder_1.1.1_all.deb
+sudo apt install ./dist/kentik-device-onboarder_1.1.3_all.deb
 ```
 
 ### Red Hat / Rocky / Alma Linux (RPM)
@@ -116,7 +119,8 @@ sudo apt install ./dist/kentik-device-onboarder_1.1.1_all.deb
 Download the latest `.rpm` from the [Releases](https://github.com/kentik/kentik-device-onboarder/releases) page, then:
 
 ```bash
-sudo dnf install ./kentik-device-onboarder-1.1.1-1.noarch.rpm
+KENTIK_API_EMAIL=you@example.com KENTIK_API_TOKEN=… \
+  sudo -E dnf install ./kentik-device-onboarder-1.1.3-1.noarch.rpm
 ```
 
 Both packages:
@@ -125,11 +129,12 @@ Both packages:
 2. Install the daemon to `/opt/kentik-device-onboarder/`.
 3. Install the systemd unit to `/usr/lib/systemd/system/`.
 4. Create `/etc/kentik-device-onboarder/onboarder.env` from the bundled example (if not already present).
-5. Attempt to read `KENTIK_API_EMAIL` and `KENTIK_API_TOKEN` from the newest `kproxy` process environment (`/proc/$(pgrep -n kproxy)/environ`) and populate those two values in the new config file.
+5. Populate `KENTIK_API_EMAIL` and `KENTIK_API_TOKEN` in the new config file. Sources, in order of precedence:
+   1. The installer's own environment (`KENTIK_API_EMAIL` / `KENTIK_API_TOKEN`) — recommended for unattended installs and the only path that works under the new Kentik universal agent (`kagent`).
+   2. The newest legacy `kproxy` process environment (`/proc/$(pgrep -n kproxy)/environ`).
+   3. None — leaves the placeholder values in place and logs an actionable hint pointing at the env vars and the config path.
 6. Query the Kentik plans API (`/plans/v202501alpha1`) with those credentials, pick the `flowpak` plan with the highest `maxFps`, and set `KENTIK_ONBOARDER_FLOWPAK_ID` automatically.
 7. Enable the service (not started automatically).
-
-If no `kproxy` process is running, or the variables are unavailable, the installer leaves the template values unchanged.
 
 If the plan API is unreachable, the installer prompts for a default flowpak plan ID during interactive installs.
 For non-interactive installs (for example unattended package upgrades), it leaves the current flowpak ID unchanged.
@@ -274,7 +279,7 @@ The container image is a 2-stage build (`python:3.12-slim` runtime) running as t
 ```bash
 make docker
 # or directly:
-docker build -t kentik-device-onboarder:1.1.1 -t kentik-device-onboarder:latest .
+docker build -t kentik-device-onboarder:1.1.3 -t kentik-device-onboarder:latest .
 ```
 
 ### Run with Docker
@@ -381,8 +386,8 @@ For tag pushes matching `v*` (for example `v1.1.0`), the workflow also publishes
 Example release flow:
 
 ```bash
-git tag v1.1.1
-git push origin v1.1.1
+git tag v1.1.3
+git push origin v1.1.3
 ```
 
 ---

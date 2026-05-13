@@ -1,5 +1,5 @@
 Name:           kentik-device-onboarder
-Version:        1.1.1
+Version:        1.1.3
 Release:        1%{?dist}
 Summary:        Automatically onboards unregistered devices into the Kentik platform
 License:        Apache-2.0
@@ -169,7 +169,7 @@ req = request.Request(
         "accept": "application/json",
         "X-CH-Auth-Email": email,
         "X-CH-Auth-API-Token": token,
-        "User-Agent": "kentik-device-onboarder-installer/1.1.0",
+        "User-Agent": "kentik-device-onboarder-installer/1.1.3",
     },
 )
 
@@ -316,6 +316,15 @@ chown kentik-onboarder:kentik-onboarder "$INSTALL_DIR/kentik_device_onboarder.py
 %attr(0644, root, root) /usr/lib/systemd/system/kentik-device-onboarder.service
 
 %changelog
+* Wed May 13 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.3-1
+- Postinst now honors KENTIK_API_EMAIL / KENTIK_API_TOKEN from the
+  installer environment (works under the new universal agent).
+
+* Wed May 13 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.2-1
+- Default api_root corrected to https://grpc.api.kentik.com.
+- Device payload now includes minimizeSnmp; failed batches log the
+  underlying validation error.
+
 * Tue May 12 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.1-1
 - Upgrade migration: postinst now appends KENTIK_ONBOARDER_DNS_SERVER=auto and
   the new DNS timeout/cache keys to existing /etc/kentik-device-onboarder/
