@@ -1,6 +1,6 @@
 # GCP test environment
 
-Spins up a Debian 12 GCE VM that installs the published `kentik-device-onboarder` `.deb`, fetches Kentik credentials from Google Secret Manager, optionally runs a `kproxy` container, and starts the onboarder service. Useful for validating the v1.1.0 cloud auto-detect / reverse-DNS behavior end-to-end on real GCP infrastructure.
+Spins up a Rocky Linux 9 GCE VM that installs the published `kentik-device-onboarder` `.rpm`, fetches Kentik credentials from Google Secret Manager, optionally runs a `kproxy` container, and starts the onboarder service. Useful for validating the v1.1.0 cloud auto-detect / reverse-DNS behavior end-to-end on real GCP infrastructure.
 
 ## Prerequisites
 
@@ -54,7 +54,7 @@ $(terraform output -raw startup_log_command)
 1. Installs Docker (only if `run_kproxy = true`).
 2. Pulls the Kentik email/token from Secret Manager via the instance metadata server.
 3. Starts the `kproxy` container on the host network (so the onboarder can reach the healthcheck UNIX socket / port locally).
-4. Downloads and installs the `.deb` from `package_url` (defaults to the v1.1.1 GitHub Release asset).
+4. Downloads and installs the `.rpm` from `package_url` (defaults to the v1.1.1 GitHub Release asset).
 5. Writes credentials and `KENTIK_ONBOARDER_DNS_SERVER=auto` into `/etc/kentik-device-onboarder/onboarder.env`.
 6. Runs `kentik_device_onboarder.py --verify` and logs the result.
 7. Enables and starts `kentik-device-onboarder.service`.
@@ -80,7 +80,7 @@ The Secret Manager secrets are **not** managed by this module, so they survive `
 
 ## Networking notes
 
-By default the VM is given an **ephemeral external IP** so the startup script can reach `apt`, Docker Hub, GitHub Releases, and the Kentik API. SSH still goes through IAP (the firewall rule only allows IAP source ranges on port 22).
+By default the VM is given an **ephemeral external IP** so the startup script can reach `dnf` repos, Docker's RPM repo, GitHub Releases, and the Kentik API. SSH still goes through IAP (the firewall rule only allows IAP source ranges on port 22).
 
 If your security policy requires the VM to have **no public IP**, set both:
 

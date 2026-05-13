@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# kentik-device-onboarder GCE test VM startup script.
+# kentik-device-onboarder GCE test VM startup script (RHEL family).
 # Rendered by Terraform (templatefile).
 
 set -euo pipefail
@@ -24,29 +24,19 @@ for _ in $(seq 1 30); do
     sleep 2
 done
 
-export DEBIAN_FRONTEND=noninteractive
-log "apt update"
-apt-get update -y
+log "dnf update metadata"
+dnf -y makecache
 
 log "installing prerequisites"
-apt-get install -y --no-install-recommends \
-    ca-certificates curl gnupg python3 jq
+dnf install -y curl jq python3 ca-certificates
 
 # ─── Install Docker (only if we need kproxy) ───────────────────────────────
 if [[ "$${RUN_KPROXY}" == "true" ]]; then
     if ! command -v docker >/dev/null 2>&1; then
-        log "installing docker"
-        install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/debian/gpg \
-            | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-        chmod a+r /etc/apt/keyrings/docker.gpg
-        . /etc/os-release
-        echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $${VERSION_CODENAME} stable" \
-            > /etc/apt/sources.list.d/docker.list
-        apt-get update -y
-        apt-get install -y --no-install-recommends \
-            docker-ce docker-ce-cli containerd.io docker-buildx-plugin
+        log "installing docker-ce"
+        dnf install -y dnf-plugins-core
+        dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
         systemctl enable --now docker
     fi
 fi
@@ -98,13 +88,14 @@ if [[ "$${RUN_KPROXY}" == "true" ]]; then
         log "kproxy container failed to start (continuing; onboarder --verify still works)"
 fi
 
-# ─── Install kentik-device-onboarder .deb ──────────────────────────────────
+# ─── Install kentik-device-onboarder .rpm ──────────────────────────────────
 log "downloading $${PACKAGE_URL}"
-PKG_PATH="/tmp/kentik-device-onboarder.deb"
+PKG_PATH="/tmp/kentik-device-onboarder.rpm"
 curl -fsSL --retry 5 --retry-delay 5 -o "$${PKG_PATH}" "$${PACKAGE_URL}"
 
 log "installing package"
-apt-get install -y "$${PKG_PATH}"
+# `dnf install` resolves dependencies (e.g. python3, systemd) automatically.
+dnf install -y "$${PKG_PATH}"
 
 # ─── Inject credentials & options into onboarder.env ───────────────────────
 CONFIG_FILE=/etc/kentik-device-onboarder/onboarder.env

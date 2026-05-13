@@ -28,9 +28,14 @@ variable "machine_type" {
 }
 
 variable "boot_image" {
-  description = "Boot image. Debian 12 matches the .deb we ship."
+  description = <<-EOT
+    Boot image. Defaults to Rocky Linux 9 (RHEL-compatible) which matches the
+    .rpm we ship. Other RHEL-family images that work: rocky-linux-cloud/
+    rocky-linux-9-optimized-gcp, almalinux-cloud/almalinux-9,
+    rhel-cloud/rhel-9.
+  EOT
   type        = string
-  default     = "debian-cloud/debian-12"
+  default     = "rocky-linux-cloud/rocky-linux-9"
 }
 
 variable "assign_public_ip" {
@@ -58,11 +63,11 @@ variable "create_cloud_nat" {
 
 variable "package_url" {
   description = <<-EOT
-    URL of the .deb to install. Defaults to the v1.1.1 GitHub Release asset.
+    URL of the .rpm to install. Defaults to the v1.1.1 GitHub Release asset.
     Override with a newer tag or a self-hosted artifact URL when testing.
   EOT
   type        = string
-  default     = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.1/kentik-device-onboarder_1.1.1_all.deb"
+  default     = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.1/kentik-device-onboarder-1.1.1-1.noarch.rpm"
 }
 
 variable "kentik_email_secret_id" {
