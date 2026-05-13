@@ -115,14 +115,13 @@ locals {
   network_tag = "${var.name_prefix}-vm"
 
   startup_script = templatefile("${path.module}/startup.sh", {
-    package_url            = var.package_url
-    kentik_email_secret_id = var.kentik_email_secret_id
-    kentik_token_secret_id = var.kentik_token_secret_id
-    flowpak_id             = var.flowpak_id
-    run_kproxy             = var.run_kproxy
-    kproxy_image           = var.kproxy_image
-    kproxy_company_id      = var.kproxy_company_id
-    onboarder_log_level    = var.onboarder_log_level
+    package_url                 = var.package_url
+    kentik_email_secret_id      = var.kentik_email_secret_id
+    kentik_token_secret_id      = var.kentik_token_secret_id
+    flowpak_id                  = var.flowpak_id
+    install_universal_agent     = var.install_universal_agent
+    universal_agent_install_url = var.universal_agent_install_url
+    onboarder_log_level         = var.onboarder_log_level
   })
 }
 

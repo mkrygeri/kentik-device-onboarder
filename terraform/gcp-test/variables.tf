@@ -94,22 +94,24 @@ variable "flowpak_id" {
   default     = 0
 }
 
-variable "run_kproxy" {
-  description = "If true, run the kproxy container so the onboarder has a real healthcheck endpoint."
+variable "install_universal_agent" {
+  description = <<-EOT
+    If true, install the Kentik universal agent on the VM via the official
+    install script. The agent provides the local healthcheck endpoint that the
+    onboarder polls.
+  EOT
   type        = bool
   default     = true
 }
 
-variable "kproxy_image" {
-  description = "Container image for kproxy."
+variable "universal_agent_install_url" {
+  description = <<-EOT
+    URL of the Kentik universal-agent install script. The numeric path
+    component is the install token / company ID issued by Kentik. Override
+    with your own token when deploying outside of the demo project.
+  EOT
   type        = string
-  default     = "kentik/kproxy:latest"
-}
-
-variable "kproxy_company_id" {
-  description = "Kentik company ID passed to kproxy via -c. Required when run_kproxy = true."
-  type        = string
-  default     = ""
+  default     = "https://grpc.api.kentik.com/install/98837"
 }
 
 variable "onboarder_log_level" {

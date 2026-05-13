@@ -11,13 +11,14 @@ kentik_email_secret_id = "projects/REPLACE-WITH-YOUR-PROJECT-ID/secrets/kentik-a
 kentik_token_secret_id = "projects/REPLACE-WITH-YOUR-PROJECT-ID/secrets/kentik-api-token"
 
 # Optional overrides
-# package_url       = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.1/kentik-device-onboarder-1.1.1-1.noarch.rpm"
-# flowpak_id        = 0           # 0 = let postinst auto-discover from plans API
-# run_kproxy        = true
-# kproxy_company_id = "12345"     # required when run_kproxy = true
+# package_url                 = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.1/kentik-device-onboarder-1.1.1-1.noarch.rpm"
+# flowpak_id                  = 0           # 0 = let postinst auto-discover from plans API
+# install_universal_agent     = true
+# universal_agent_install_url = "https://grpc.api.kentik.com/install/98837"
 #
 # Networking — by default the VM gets an ephemeral public IP so it can reach
-# dnf repos, Docker's RPM repo, GitHub Releases, and the Kentik API. To keep
-# the VM fully private, disable the public IP and create a Cloud NAT instead:
+# dnf repos, the universal-agent installer, GitHub Releases, and the Kentik
+# API. To keep the VM fully private, disable the public IP and create a
+# Cloud NAT instead:
 # assign_public_ip  = false
 # create_cloud_nat  = true

@@ -8,9 +8,8 @@ PACKAGE_URL="${package_url}"
 EMAIL_SECRET="${kentik_email_secret_id}"
 TOKEN_SECRET="${kentik_token_secret_id}"
 FLOWPAK_ID="${flowpak_id}"
-RUN_KPROXY="${run_kproxy}"
-KPROXY_IMAGE="${kproxy_image}"
-KPROXY_COMPANY_ID="${kproxy_company_id}"
+INSTALL_UNIVERSAL_AGENT="${install_universal_agent}"
+UNIVERSAL_AGENT_INSTALL_URL="${universal_agent_install_url}"
 ONBOARDER_LOG_LEVEL="${onboarder_log_level}"
 
 LOG_TAG="onboarder-bootstrap"
@@ -29,17 +28,6 @@ dnf -y makecache
 
 log "installing prerequisites"
 dnf install -y curl jq python3 ca-certificates
-
-# ─── Install Docker (only if we need kproxy) ───────────────────────────────
-if [[ "$${RUN_KPROXY}" == "true" ]]; then
-    if ! command -v docker >/dev/null 2>&1; then
-        log "installing docker-ce"
-        dnf install -y dnf-plugins-core
-        dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-        dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
-        systemctl enable --now docker
-    fi
-fi
 
 # ─── Fetch Kentik credentials from Secret Manager ──────────────────────────
 gcloud_token() {
@@ -67,25 +55,21 @@ if [[ -z "$${KENTIK_API_EMAIL}" || -z "$${KENTIK_API_TOKEN}" ]]; then
     exit 1
 fi
 
-# ─── Run kproxy (optional) ─────────────────────────────────────────────────
-if [[ "$${RUN_KPROXY}" == "true" ]]; then
-    log "starting kproxy container"
-    docker rm -f kproxy >/dev/null 2>&1 || true
-
-    KPROXY_ARGS=(
-        --name kproxy
-        --restart unless-stopped
-        --network host
-        -e "KENTIK_API_EMAIL=$${KENTIK_API_EMAIL}"
-        -e "KENTIK_API_TOKEN=$${KENTIK_API_TOKEN}"
-    )
-    if [[ -n "$${KPROXY_COMPANY_ID}" ]]; then
-        KPROXY_ARGS+=(-e "KPROXY_COMPANY=$${KPROXY_COMPANY_ID}")
+# ─── Install Kentik universal agent ────────────────────────────────────────
+# The universal agent provides the local healthcheck endpoint that the
+# onboarder polls. The install script auto-detects the OS and registers a
+# systemd unit. Credentials are passed via environment variables so they
+# never appear on the command line / in process lists.
+if [[ "$${INSTALL_UNIVERSAL_AGENT}" == "true" ]]; then
+    log "installing Kentik universal agent from $${UNIVERSAL_AGENT_INSTALL_URL}"
+    if KENTIK_API_EMAIL="$${KENTIK_API_EMAIL}" \
+       KENTIK_API_TOKEN="$${KENTIK_API_TOKEN}" \
+       bash -c "curl -fsSL '$${UNIVERSAL_AGENT_INSTALL_URL}' | sh"; then
+        log "universal agent installer succeeded"
+    else
+        rc=$?
+        log "universal agent installer FAILED (rc=$${rc}) - continuing"
     fi
-
-    docker pull "$${KPROXY_IMAGE}"
-    docker run -d "$${KPROXY_ARGS[@]}" "$${KPROXY_IMAGE}" || \
-        log "kproxy container failed to start (continuing; onboarder --verify still works)"
 fi
 
 # ─── Install kentik-device-onboarder .rpm ──────────────────────────────────
