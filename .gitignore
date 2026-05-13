@@ -41,3 +41,15 @@ update_device_sample_rate.py
 
 # Editor workspace
 *.code-workspace
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+.terraform.lock.hcl
+# Real tfvars files — keep only the *.example
+terraform/**/terraform.tfvars
+terraform/**/*.auto.tfvars

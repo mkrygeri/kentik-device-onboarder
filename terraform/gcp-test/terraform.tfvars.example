@@ -1,0 +1,18 @@
+project_id = "REPLACE-WITH-YOUR-PROJECT-ID"
+region     = "us-central1"
+zone       = "us-central1-a"
+
+# Create these secrets first (one-time):
+#   printf '%s' "$KENTIK_EMAIL" | gcloud secrets create kentik-api-email \
+#       --data-file=- --replication-policy=automatic
+#   printf '%s' "$KENTIK_API_TOKEN" | gcloud secrets create kentik-api-token \
+#       --data-file=- --replication-policy=automatic
+kentik_email_secret_id = "projects/REPLACE-WITH-YOUR-PROJECT-ID/secrets/kentik-api-email"
+kentik_token_secret_id = "projects/REPLACE-WITH-YOUR-PROJECT-ID/secrets/kentik-api-token"
+
+# Optional overrides
+# package_url       = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.1/kentik-device-onboarder_1.1.1_all.deb"
+# flowpak_id        = 0           # 0 = let postinst auto-discover from plans API
+# run_kproxy        = true
+# kproxy_company_id = "12345"     # required when run_kproxy = true
+# assign_public_ip  = false       # default: SSH via IAP only
