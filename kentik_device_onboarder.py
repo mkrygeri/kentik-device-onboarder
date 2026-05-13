@@ -73,7 +73,7 @@ class Config:
     healthcheck_address: str = "127.0.0.1:9996"
     poll_interval: float = DEFAULT_POLL_INTERVAL
     healthcheck_timeout: float = DEFAULT_HEALTHCHECK_TIMEOUT
-    api_root: str = "https://api.kentik.com"
+    api_root: str = "https://grpc.api.kentik.com"
     request_timeout: float = DEFAULT_REQUEST_TIMEOUT
     batch_size: int = MAX_BATCH_SIZE
     success_cooldown: float = DEFAULT_SUCCESS_COOLDOWN
@@ -353,6 +353,19 @@ class KentikClient:
                     if item.get("deviceName") or item.get("device_name")
                 }
                 failed_names = set(payload.get("failedDevices") or payload.get("failed_devices") or [])
+                # The batch endpoint returns 200 OK with no per-device error messages
+                # even when devices are rejected (e.g. missing required fields, plan
+                # limits exceeded). When any device fails, retry one of the failures
+                # via the singular /device endpoint to extract the validation error
+                # and log it - otherwise operators have no way to see why.
+                if failed_names:
+                    LOGGER.warning(
+                        "batch_create reported %d failed device(s) (created=%d). "
+                        "Probing one failure for the underlying reason...",
+                        len(failed_names),
+                        len(created_names),
+                    )
+                    self._log_singleton_failure_reason(devices, failed_names, headers)
                 return created_names, failed_names
         except error.HTTPError as exc:
             response_body = exc.read().decode("utf-8", errors="replace")
@@ -374,6 +387,40 @@ class KentikClient:
             raise OnboarderError(f"kentik api request failed with status {exc.code}: {response_body.strip()}") from exc
         except error.URLError as exc:
             raise TransientAPIError(f"kentik api request failed: {exc.reason}") from exc
+
+    def _log_singleton_failure_reason(
+        self,
+        devices: list[dict[str, Any]],
+        failed_names: set[str],
+        headers: dict[str, str],
+    ) -> None:
+        # Best-effort diagnostic. Sends one of the failed devices through the
+        # singular /device endpoint, which returns a structured per-field
+        # validation error that the batch endpoint suppresses. We never raise
+        # from here - any error is logged and ignored.
+        sample = next((d for d in devices if d.get("deviceName") in failed_names), None)
+        if sample is None:
+            return
+        try:
+            probe_body = json.dumps({"device": sample}).encode("utf-8")
+            probe_req = request.Request(
+                url=f"{self.api_root}/device/v202504beta2/device",
+                data=probe_body,
+                method="POST",
+                headers=headers,
+            )
+            with self.opener.open(probe_req, timeout=self.request_timeout) as probe_resp:
+                probe_resp.read(2048)
+        except error.HTTPError as probe_exc:
+            probe_body_text = probe_exc.read().decode("utf-8", errors="replace")[:500]
+            LOGGER.warning(
+                "batch failure diagnostic for device_name=%s: HTTP %d %s",
+                sample.get("deviceName"),
+                probe_exc.code,
+                probe_body_text.strip(),
+            )
+        except Exception as probe_exc:  # noqa: BLE001 - diagnostic only
+            LOGGER.debug("batch failure diagnostic probe failed: %s", probe_exc)
 
 
 class DeviceOnboarder:
@@ -486,7 +533,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--healthcheck-address", default=os.getenv("KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS", "127.0.0.1:9996"), help="tcp host:port for the healthcheck socket")
     parser.add_argument("--poll-interval", type=parse_duration, default=parse_duration(os.getenv("KENTIK_ONBOARDER_POLL_INTERVAL", "5m")), help="poll interval, for example 300, 30s, 5m, 1h")
     parser.add_argument("--healthcheck-timeout", type=parse_duration, default=parse_duration(os.getenv("KENTIK_ONBOARDER_HEALTHCHECK_TIMEOUT", "5s")), help="healthcheck socket timeout")
-    parser.add_argument("--api-root", default=os.getenv("KENTIK_ONBOARDER_API_ROOT", "https://api.kentik.com"), help="kentik api root")
+    parser.add_argument("--api-root", default=os.getenv("KENTIK_ONBOARDER_API_ROOT", "https://grpc.api.kentik.com"), help="kentik api root")
     parser.add_argument("--request-timeout", type=parse_duration, default=parse_duration(os.getenv("KENTIK_ONBOARDER_REQUEST_TIMEOUT", "15s")), help="kentik api request timeout")
     parser.add_argument("--batch-size", type=int, default=env_int("KENTIK_ONBOARDER_BATCH_SIZE", MAX_BATCH_SIZE), help="maximum devices per batch create request")
     parser.add_argument("--success-cooldown", type=parse_duration, default=parse_duration(os.getenv("KENTIK_ONBOARDER_SUCCESS_COOLDOWN", "24h")), help="cooldown after a successful onboarding")
@@ -620,6 +667,11 @@ def build_device_payloads(
                 "planId": flowpak_id,
                 "deviceBgpType": "none",
                 "deviceSampleRate": 1000,
+                # Required by the v202504beta2 API for device_type=router; without
+                # this the API silently rejects the device with no per-item reason
+                # in the batch response. We default to disabling SNMP polling since
+                # the onboarder only knows the source IP and has no SNMP credentials.
+                "minimizeSnmp": True,
             }
         )
     return devices

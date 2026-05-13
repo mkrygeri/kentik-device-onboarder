@@ -7,6 +7,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.1.2] - 2026-05-13
+
+### Fixed
+
+- Default `KENTIK_ONBOARDER_API_ROOT` corrected from `https://api.kentik.com` to `https://grpc.api.kentik.com`. The v202504beta2 device endpoints are only served from the gRPC host; the previous default produced HTML 404s and `failedDevices` responses with no per-device error.
+- Device-create payload now includes `minimizeSnmp: true`. The v202504beta2 API rejects `device_type=router` payloads without `minimize_snmp` set, but the batch endpoint hides the validation error and returns 200 OK with every device in `failedDevices`. Devices were never created and operators had no log signal as to why.
+
+### Added
+
+- When `batch_create` reports any failed devices, the onboarder now retries one of them through the singular `/device` endpoint and logs the API's structured error message (e.g. `_exceeds_plan_limits`, `Internal IP (...) Already Exists`, `minimize_snmp ... is required`). This turns silent batch failures into actionable log lines.
+- 401/403 errors during normal cycles now include a credential-check hint pointing at `KENTIK_API_EMAIL` / `KENTIK_API_TOKEN`.
+
+---
+
 ## [1.1.1] - 2026-05-12
 
 ### Changed
