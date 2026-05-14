@@ -79,6 +79,42 @@ in `/etc/kentik-device-onboarder/onboarder.env` (or `--dns-server auto`). At sta
 
 On non-cloud hosts every probe fails fast (1.5 s timeout each) and the onboarder uses the system resolver. You can also pin a specific server, e.g. `KENTIK_ONBOARDER_DNS_SERVER=169.254.169.254`. Run `kentik_device_onboarder.py --verify` to confirm the configuration works end-to-end before restarting the service.
 
+### "name or service not known" during install
+
+Both the package postinst and `install-kentik-device-onboarder.sh` run a DNS preflight after writing `onboarder.env` and warn loudly if either the configured Kentik API host or the healthcheck host fails to resolve via `getent hosts`. A typical warning looks like:
+
+```
+WARNING: cannot resolve Kentik API host 'grpc.api.kentik.com' (name or service not known).
+         the service will fail to onboard devices until DNS works.
+         check /etc/resolv.conf, outbound DNS, and proxy/firewall rules.
+```
+
+The install always completes — this is a diagnostic, not a failure. Common causes:
+
+- The host has no outbound DNS at all (air-gapped or stripped `/etc/resolv.conf`).
+- An outbound firewall blocks UDP/53 or HTTPS to `grpc.api.kentik.com`.
+- A proxy is required for outbound HTTPS but isn't set in the system environment.
+
+Fix DNS / connectivity, then either re-run the installer or `systemctl restart kentik-device-onboarder` and tail the journal.
+
+### Outbound HTTP proxy
+
+The onboarder honours the standard `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` environment variables (and their lower-case forms). Set them in `/etc/kentik-device-onboarder/onboarder.env` and they'll be picked up automatically because the systemd unit loads that file via `EnvironmentFile=`:
+
+```ini
+HTTPS_PROXY=http://proxy.corp.example:3128
+HTTP_PROXY=http://proxy.corp.example:3128
+NO_PROXY=localhost,127.0.0.1,169.254.169.254,168.63.129.16
+```
+
+Notes:
+
+- All calls to `grpc.api.kentik.com` (healthcheck-driven onboarding, `--verify`, plan auto-discovery) go through the proxy.
+- Cloud metadata probes (`169.254.169.254`, `168.63.129.16`) **always** bypass the proxy, so `KENTIK_ONBOARDER_DNS_SERVER=auto` keeps working behind a proxy without you having to remember to add the link-local addresses to `NO_PROXY` (though the example above adds them anyway for any other tools running on the host).
+- Reverse-DNS PTR queries use UDP/53 directly to the configured resolver and never go through an HTTP proxy.
+- Authenticated proxies are supported via `http://user:pass@proxy:3128`. The credentials are redacted in the startup log line that confirms the proxy is in use.
+- Restart the service after editing the file: `sudo systemctl restart kentik-device-onboarder`. Look for a log line like `HTTP proxy configuration in use: {'https': 'http://proxy.corp.example:3128'} NO_PROXY='...'` to confirm.
+
 ---
 
 ## Requirements
@@ -100,7 +136,7 @@ Download the latest `.deb` from the [Releases](https://github.com/kentik/kentik-
 
 ```bash
 KENTIK_API_EMAIL=you@example.com KENTIK_API_TOKEN=… \
-  sudo -E apt install ./kentik-device-onboarder_1.1.3_all.deb
+  sudo -E apt install ./kentik-device-onboarder_1.1.4_all.deb
 ```
 
 Without the env vars the package still installs cleanly; you just need to edit `/etc/kentik-device-onboarder/onboarder.env` afterwards.
@@ -111,7 +147,7 @@ rebuild the package from the latest source and reinstall:
 
 ```bash
 make deb
-sudo apt install ./dist/kentik-device-onboarder_1.1.3_all.deb
+sudo apt install ./dist/kentik-device-onboarder_1.1.4_all.deb
 ```
 
 ### Red Hat / Rocky / Alma Linux (RPM)
@@ -120,7 +156,7 @@ Download the latest `.rpm` from the [Releases](https://github.com/kentik/kentik-
 
 ```bash
 KENTIK_API_EMAIL=you@example.com KENTIK_API_TOKEN=… \
-  sudo -E dnf install ./kentik-device-onboarder-1.1.3-1.noarch.rpm
+  sudo -E dnf install ./kentik-device-onboarder-1.1.4-1.noarch.rpm
 ```
 
 Both packages:
@@ -279,7 +315,7 @@ The container image is a 2-stage build (`python:3.12-slim` runtime) running as t
 ```bash
 make docker
 # or directly:
-docker build -t kentik-device-onboarder:1.1.3 -t kentik-device-onboarder:latest .
+docker build -t kentik-device-onboarder:1.1.4 -t kentik-device-onboarder:latest .
 ```
 
 ### Run with Docker
@@ -386,8 +422,8 @@ For tag pushes matching `v*` (for example `v1.1.0`), the workflow also publishes
 Example release flow:
 
 ```bash
-git tag v1.1.3
-git push origin v1.1.3
+git tag v1.1.4
+git push origin v1.1.4
 ```
 
 ---

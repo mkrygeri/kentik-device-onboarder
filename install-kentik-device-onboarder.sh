@@ -133,7 +133,7 @@ req = request.Request(
         "accept": "application/json",
         "X-CH-Auth-Email": email,
         "X-CH-Auth-API-Token": token,
-        "User-Agent": "kentik-device-onboarder-installer/1.1.3",
+        "User-Agent": "kentik-device-onboarder-installer/1.1.4",
     },
 )
 
@@ -234,6 +234,75 @@ migrate_config_to_v1_1_0() {
   add_config_value_if_missing "$config_file" KENTIK_ONBOARDER_DNS_SERVER auto
 }
 
+extract_host() {
+  # Extract just the hostname from a value like "https://grpc.api.kentik.com"
+  # or "127.0.0.1:9996". Returns empty string on parse failure.
+  local value="$1"
+  value=${value#http://}
+  value=${value#https://}
+  value=${value%%/*}
+  value=${value%%:*}
+  printf '%s' "$value"
+}
+
+dns_preflight() {
+  # Resolve the configured Kentik API host and healthcheck host so the
+  # operator sees "name or service not known" immediately during install
+  # instead of discovering it later in `journalctl -u
+  # kentik-device-onboarder`. Non-fatal: we warn and continue so an
+  # air-gapped or staged install still completes.
+  local config_file="$1"
+  local api_root healthcheck_addr api_host hc_host
+  local failures=0
+
+  api_root=$(get_config_value "$config_file" "KENTIK_ONBOARDER_API_ROOT")
+  api_root=${api_root:-https://grpc.api.kentik.com}
+  healthcheck_addr=$(get_config_value "$config_file" "KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS")
+  healthcheck_addr=${healthcheck_addr:-127.0.0.1:9996}
+
+  api_host=$(extract_host "$api_root")
+  hc_host=$(extract_host "$healthcheck_addr")
+
+  if [[ -n "$api_host" ]] && ! getent hosts "$api_host" >/dev/null 2>&1; then
+    echo "WARNING: cannot resolve Kentik API host '$api_host' (name or service not known)." >&2
+    echo "         the service will fail to onboard devices until DNS works." >&2
+    echo "         check /etc/resolv.conf, outbound DNS, and proxy/firewall rules." >&2
+    failures=$((failures + 1))
+  fi
+
+  # If the operator configured an HTTPS proxy in onboarder.env, resolve it
+  # too so misconfigurations surface during install instead of as cryptic
+  # connect failures later.
+  local proxy_url proxy_host
+  proxy_url=$(get_config_value "$config_file" "HTTPS_PROXY")
+  [[ -z "$proxy_url" ]] && proxy_url=$(get_config_value "$config_file" "HTTP_PROXY")
+  [[ -z "$proxy_url" ]] && proxy_url=$(get_config_value "$config_file" "https_proxy")
+  [[ -z "$proxy_url" ]] && proxy_url=$(get_config_value "$config_file" "http_proxy")
+  if [[ -n "$proxy_url" ]]; then
+    # Strip embedded credentials before host extraction.
+    proxy_host=$(extract_host "${proxy_url##*@}")
+    if [[ -n "$proxy_host" && ! "$proxy_host" =~ ^[0-9.]+$ ]] && ! getent hosts "$proxy_host" >/dev/null 2>&1; then
+      echo "WARNING: cannot resolve HTTP proxy host '$proxy_host' (name or service not known)." >&2
+      echo "         the service will fail to reach Kentik until DNS for the proxy works." >&2
+      failures=$((failures + 1))
+    fi
+  fi
+
+  # Skip the healthcheck check for IP literals — getent always succeeds and
+  # there's nothing to diagnose.
+  if [[ -n "$hc_host" && ! "$hc_host" =~ ^[0-9.]+$ && ! "$hc_host" =~ ^[0-9a-fA-F:]+$ ]]; then
+    if ! getent hosts "$hc_host" >/dev/null 2>&1; then
+      echo "WARNING: cannot resolve healthcheck host '$hc_host' (name or service not known)." >&2
+      echo "         set KENTIK_ONBOARDER_HEALTHCHECK_ADDRESS in $config_file to a reachable address." >&2
+      failures=$((failures + 1))
+    fi
+  fi
+
+  if [[ $failures -eq 0 ]]; then
+    echo "DNS preflight OK (api=$api_host healthcheck=$hc_host)"
+  fi
+}
+
 if [[ $EUID -ne 0 ]]; then
   echo "this installer must be run as root" >&2
   exit 1
@@ -287,6 +356,8 @@ chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR" "$STATE_DIR"
 
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
+
+dns_preflight "$CONFIG_DIR/onboarder.env"
 
 cat <<EOF
 installation complete.

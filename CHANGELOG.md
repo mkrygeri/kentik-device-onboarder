@@ -7,6 +7,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [1.1.4] - 2026-05-14
+
+### Added
+
+- **HTTP proxy support.** The runtime now installs `urllib.request.ProxyHandler()` in its API client, so standard `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` environment variables (and their lower-case forms) are honored for all calls to the Kentik API. Set them in `/etc/kentik-device-onboarder/onboarder.env` and the existing `EnvironmentFile=` directive in the systemd unit picks them up automatically. The active proxy is logged once at startup with embedded credentials redacted. Cloud metadata probes (169.254.169.254, 168.63.129.16) explicitly bypass the proxy so `KENTIK_ONBOARDER_DNS_SERVER=auto` keeps working.
+- **Install-time DNS preflight.** Both the package postinst (DEB and RPM) and `install-kentik-device-onboarder.sh` now resolve the configured Kentik API host, healthcheck host, and (when set) HTTP proxy host via `getent hosts` immediately after writing `onboarder.env`. Failures produce a clear `WARNING: cannot resolve ... (name or service not known).` line so operators see the problem at install time instead of having to dig it out of `journalctl -u kentik-device-onboarder` later. Non-fatal: the install still completes.
+- `kentik-device-onboarder.env.example` documents the proxy variables.
+- README has a new "Outbound HTTP proxy" section and a "name or service not known during install" troubleshooting section.
+
+---
+
 ## [1.1.3] - 2026-05-13
 
 ### Fixed

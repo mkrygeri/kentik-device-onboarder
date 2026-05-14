@@ -1,6 +1,6 @@
 # GCP test environment
 
-Spins up a Rocky Linux 9 GCE VM that installs the published `kentik-device-onboarder` `.rpm` (defaults to v1.1.3), fetches Kentik credentials from Google Secret Manager, installs the Kentik universal agent (which provides the local healthcheck endpoint), and starts the onboarder service. Useful for validating the cloud auto-detect / reverse-DNS behavior end-to-end on real GCP infrastructure.
+Spins up a Rocky Linux 9 GCE VM that installs the published `kentik-device-onboarder` `.rpm` (defaults to v1.1.4), fetches Kentik credentials from Google Secret Manager, installs the Kentik universal agent (which provides the local healthcheck endpoint), and starts the onboarder service. Useful for validating the cloud auto-detect / reverse-DNS behavior end-to-end on real GCP infrastructure.
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ $(terraform output -raw startup_log_command)
 
 1. Pulls the Kentik email/token from Secret Manager via the instance metadata server.
 2. Installs the Kentik universal agent via `curl -fsSL <install_url> | sh` (configurable via `universal_agent_install_url`; the default token in the example is for the Kentik demo project and should be replaced with your own).
-3. Downloads and installs the `.rpm` from `package_url` (defaults to the v1.1.3 GitHub Release asset).
+3. Downloads and installs the `.rpm` from `package_url` (defaults to the v1.1.4 GitHub Release asset).
 4. Writes credentials and `KENTIK_ONBOARDER_DNS_SERVER=auto` into `/etc/kentik-device-onboarder/onboarder.env`.
 5. Runs `kentik_device_onboarder.py --verify` and logs the result.
 6. Enables and starts `kentik-device-onboarder.service`.

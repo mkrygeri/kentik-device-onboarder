@@ -1,5 +1,5 @@
 Name:           kentik-device-onboarder
-Version:        1.1.3
+Version:        1.1.4
 Release:        1%{?dist}
 Summary:        Automatically onboards unregistered devices into the Kentik platform
 License:        Apache-2.0
@@ -169,7 +169,7 @@ req = request.Request(
         "accept": "application/json",
         "X-CH-Auth-Email": email,
         "X-CH-Auth-API-Token": token,
-        "User-Agent": "kentik-device-onboarder-installer/1.1.3",
+        "User-Agent": "kentik-device-onboarder-installer/1.1.4",
     },
 )
 
@@ -316,6 +316,15 @@ chown kentik-onboarder:kentik-onboarder "$INSTALL_DIR/kentik_device_onboarder.py
 %attr(0644, root, root) /usr/lib/systemd/system/kentik-device-onboarder.service
 
 %changelog
+* Thu May 14 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.4-1
+- Runtime: install ProxyHandler in the urllib opener so HTTPS_PROXY /
+  HTTP_PROXY / NO_PROXY env vars in onboarder.env are honored. Cloud
+  metadata probes always bypass the proxy.
+- Postinst: DNS preflight resolves the configured Kentik API host,
+  healthcheck host, and (when set) HTTP proxy host immediately after
+  writing onboarder.env, surfacing 'name or service not known' at
+  install time. Non-fatal.
+
 * Wed May 13 2026 Kentik Technologies, Inc. <support@kentik.com> - 1.1.3-1
 - Postinst now honors KENTIK_API_EMAIL / KENTIK_API_TOKEN from the
   installer environment (works under the new universal agent).

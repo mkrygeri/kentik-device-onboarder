@@ -290,11 +290,20 @@ class KentikClient:
 
         # Create SSL context with proper certificate verification
         ssl_context = ssl.create_default_context()
-        self.opener = request.build_opener(request.HTTPSHandler(context=ssl_context))
+        # Pick up HTTPS_PROXY / HTTP_PROXY / NO_PROXY (and their lower-case
+        # variants) from the process environment. ProxyHandler() with no
+        # args uses urllib.request.getproxies(), which honours those
+        # standard variables. Without this handler, build_opener() with an
+        # explicit handler list omits the default ProxyHandler and silently
+        # ignores proxy configuration.
+        self.opener = request.build_opener(
+            request.ProxyHandler(),
+            request.HTTPSHandler(context=ssl_context),
+        )
 
     def _auth_headers(self) -> dict[str, str]:
         return {
-            "User-Agent": "kentik-device-onboarder/1.1.3",
+            "User-Agent": "kentik-device-onboarder/1.1.4",
             "X-CH-Auth-Email": self.api_email,
             "X-CH-Auth-API-Token": self.api_token,
         }
@@ -800,8 +809,13 @@ def _probe_aws() -> bool:
 
 def _probe_http(url: str, headers: dict[str, str], *, method: str, expect_header: tuple[str, str] | None = None) -> bool:
     req = request.Request(url, headers=headers, method=method, data=b"" if method == "PUT" else None)
+    # Cloud metadata servers live on link-local addresses (169.254.x.x,
+    # 168.63.129.16) and must NEVER be reached through an HTTP proxy.
+    # Build a one-off opener that explicitly disables proxying so this
+    # probe ignores HTTPS_PROXY / HTTP_PROXY in the environment.
+    opener = request.build_opener(request.ProxyHandler({}))
     try:
-        with request.urlopen(req, timeout=DETECTION_TIMEOUT) as response:
+        with opener.open(req, timeout=DETECTION_TIMEOUT) as response:
             if response.status >= 400:
                 return False
             if expect_header is not None:
@@ -1029,6 +1043,26 @@ def main() -> int:
         config.dry_run,
         config.run_once,
     )
+
+    proxies = request.getproxies()
+    if proxies:
+        # Surface the active proxy configuration once at startup so operators
+        # can confirm HTTPS_PROXY / HTTP_PROXY took effect. Strip credentials
+        # in case the proxy URL was supplied as http://user:pass@host:port.
+        def _scrub(url: str) -> str:
+            try:
+                parts = urlparse.urlsplit(url)
+            except ValueError:
+                return url
+            netloc = parts.hostname or ""
+            if parts.port:
+                netloc = f"{netloc}:{parts.port}"
+            if parts.username:
+                netloc = f"<redacted>@{netloc}"
+            return urlparse.urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+        scrubbed = {scheme: _scrub(url) for scheme, url in proxies.items()}
+        no_proxy = os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or ""
+        LOGGER.info("HTTP proxy configuration in use: %s NO_PROXY=%r", scrubbed, no_proxy)
 
     if config.verify:
         return run_verification(config)

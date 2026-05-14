@@ -11,7 +11,7 @@ kentik_email_secret_id = "projects/REPLACE-WITH-YOUR-PROJECT-ID/secrets/kentik-a
 kentik_token_secret_id = "projects/REPLACE-WITH-YOUR-PROJECT-ID/secrets/kentik-api-token"
 
 # Optional overrides
-# package_url                 = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.3/kentik-device-onboarder-1.1.3-1.noarch.rpm"
+# package_url                 = "https://github.com/mkrygeri/kentik-device-onboarder/releases/download/v1.1.4/kentik-device-onboarder-1.1.4-1.noarch.rpm"
 # flowpak_id                  = 0           # 0 = let postinst auto-discover from plans API
 # install_universal_agent     = true
 # universal_agent_install_url = "https://grpc.api.kentik.com/install/98837"

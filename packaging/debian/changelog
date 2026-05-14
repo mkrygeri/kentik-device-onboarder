@@ -1,3 +1,33 @@
+kentik-device-onboarder (1.1.4-1) unstable; urgency=medium
+
+  * Runtime: install ProxyHandler in the urllib opener so HTTPS_PROXY /
+    HTTP_PROXY / NO_PROXY env vars in onboarder.env are honored for all
+    Kentik API calls. Cloud metadata probes (169.254.x, 168.63.129.16)
+    always bypass the proxy so DNS auto-detect keeps working.
+  * Postinst: DNS preflight resolves the configured Kentik API host,
+    healthcheck host, and (when set) HTTP proxy host immediately after
+    writing onboarder.env, surfacing 'name or service not known' at
+    install time. Non-fatal.
+  * Bump installer User-Agent to kentik-device-onboarder-installer/1.1.4.
+
+ -- Kentik Technologies, Inc. <support@kentik.com>  Thu, 14 May 2026 12:00:00 +0000
+
+kentik-device-onboarder (1.1.3-1) unstable; urgency=medium
+
+  * Postinst now honors KENTIK_API_EMAIL / KENTIK_API_TOKEN from the
+    installer environment so unattended installs work under the new
+    Kentik universal agent (kagent).
+
+ -- Kentik Technologies, Inc. <support@kentik.com>  Wed, 13 May 2026 12:00:00 +0000
+
+kentik-device-onboarder (1.1.2-1) unstable; urgency=medium
+
+  * Default api_root corrected to https://grpc.api.kentik.com.
+  * Device payload now includes minimizeSnmp; failed batches log the
+    underlying validation error.
+
+ -- Kentik Technologies, Inc. <support@kentik.com>  Wed, 13 May 2026 11:00:00 +0000
+
 kentik-device-onboarder (1.1.1-1) unstable; urgency=medium
 
   * postinst now migrates existing /etc/kentik-device-onboarder/onboarder.env
